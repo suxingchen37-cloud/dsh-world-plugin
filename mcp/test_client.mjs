@@ -125,6 +125,42 @@ assert.ok(st.audit === undefined || Array.isArray(st.lastAudit));
 assert.ok(st.lastAudit.some(a => a.kind === 'executed'), 'audit trail records executions');
 say(`PASS  audit trail: ${st.lastAudit.map(a => a.kind).join('>')}`);
 
+// 9. the page's autonomy switch is the enforcement point, not decoration. With it off, the agent
+// may not answer its own ticket — the state file is re-read on every call, exactly like the real
+// handoff where the 世界 page writes it.
+{
+  const stFile = path.join(STATE, 'computer.json');
+  const s = JSON.parse(fs.readFileSync(stFile, 'utf8'));
+  const was = s.autonomy;
+  // earlier checks granted some actions "always"; take them back so this call really is held,
+  // the same way the page's revoke does
+  s.autonomy = false;
+  s.permissions = {};
+  fs.writeFileSync(stFile, JSON.stringify(s, null, 2));
+  const held = text(await rpc('tools/call', { name: 'computer_shell', arguments: { command: process.execPath, args: ['-e', 'console.log("MUST-NOT-RUN")'] } }));
+  assert.equal(held.status, 'permission_pending', 'with autonomy off a fresh call must be held: ' + JSON.stringify(held));
+  const self = text(await rpc('tools/call', { name: 'computer_respond', arguments: { approvalId: held.approvalId, verdict: 'allow-once' } }));
+  assert.equal(self.status, 'refused', 'with autonomy off the agent cannot answer its own ticket: ' + JSON.stringify(self));
+  assert.equal(self.reason, 'autonomy-off');
+  const capsOff = text(await rpc('tools/call', { name: 'computer_capabilities', arguments: {} }));
+  assert.equal(capsOff.autonomy, false, 'the agent is told the switch is off');
+  const queue = text(await rpc('tools/call', { name: 'computer_pending', arguments: {} }));
+  assert.ok(queue.pending.some(p => p.approvalId === held.approvalId), 'the ticket must still be waiting for the human');
+  const retry = text(await rpc('tools/call', { name: 'computer_shell', arguments: { command: process.execPath, args: ['-e', 'console.log(1)'], approvalId: held.approvalId } }));
+  assert.notEqual(retry.status, 'ok', 'nothing may execute while autonomy is off: ' + JSON.stringify(retry));
+  s.autonomy = was === undefined ? true : was;
+  fs.writeFileSync(stFile, JSON.stringify(s, null, 2));
+  // turning it back on must be the only thing that changed: a new call is still held, then the
+  // agent is allowed to answer that ticket itself
+  const again = text(await rpc('tools/call', { name: 'computer_shell', arguments: { command: process.execPath, args: ['-e', 'console.log("AFTER-ON")'] } }));
+  assert.equal(again.status, 'permission_pending', 'the ask-gate still holds a fresh call: ' + JSON.stringify(again));
+  const afterOn = text(await rpc('tools/call', { name: 'computer_respond', arguments: { approvalId: again.approvalId, verdict: 'allow-once' } }));
+  assert.equal(afterOn.ok, true, 'back on: the agent may answer its own ticket again: ' + JSON.stringify(afterOn));
+  const ranAfterOn = text(await rpc('tools/call', { name: 'computer_shell', arguments: { command: process.execPath, args: ['-e', 'console.log("AFTER-ON")'], approvalId: again.approvalId } }));
+  assert.equal(ranAfterOn.status, 'ok', 'and the approved call then executes: ' + JSON.stringify(ranAfterOn));
+  say('PASS  autonomy off (written by the page) -> self-answer refused and nothing runs; on again -> the same path works');
+}
+
 child.stdin.end();
 child.kill();
 console.log(`\n${out.length} checks passed; server stderr: ${stderr.join('').trim().slice(0, 120)}`);

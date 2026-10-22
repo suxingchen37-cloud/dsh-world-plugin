@@ -112,7 +112,8 @@ const stop = apply(ctx);
 const epFile = path.join(STATE, 'ui-endpoint.json');
 for (let i = 0; i < 60 && !fs.existsSync(epFile); i++) await new Promise(r => setTimeout(r, 50));
 const ep = JSON.parse(fs.readFileSync(epFile, 'utf8'));
-const say = t => console.log(t);
+let checks = 0;
+const say = t => { if (String(t).startsWith('PASS')) checks++; console.log(t); };
 const APP = { origin: 'dsh-app://app' };
 const read = (p, extra = {}) => fetch(ep.url + p, { headers: { ...APP, ...extra } });
 const post = (p, body) => fetch(ep.url + p, {
@@ -292,6 +293,22 @@ const replay = await post('/respond', { approvalId: 'no-such-ticket', verdict: '
 assert.equal(replay.status, 403, 'the same nonce cannot be replayed');
 say('PASS  authorized write: reaches the handler once, then the nonce is spent');
 
+// 4b. the autonomy switch is the page's one write that decides whether the agent may act without
+// asking, so it is gated exactly like /respond — and it is the only place that flips it
+const nBadType = (await (await read('/snapshot')).json()).nonce;
+assert.equal((await post('/autonomy', { autonomy: false })).status, 403, 'turning autonomy off with no nonce is refused');
+assert.equal((await post('/autonomy', { autonomy: 'yes', nonce: nBadType })).status, 400, 'a non-boolean autonomy is refused');
+const nOff = (await (await read('/snapshot')).json()).nonce;
+const off = await post('/autonomy', { autonomy: false, nonce: nOff });
+assert.equal(off.status, 200, 'the page can turn it off: ' + JSON.stringify(await off.json().catch(() => null)));
+assert.equal((await (await read('/snapshot')).json()).autonomy, false, 'the snapshot now says the agent must wait');
+const autoState = JSON.parse(fs.readFileSync(path.join(STATE, 'computer.json'), 'utf8'));
+assert.ok(autoState.audit.some(a => a.kind === 'autonomy' && a.autonomy === false), 'the flip is written into the audit trail');
+const nOn = (await (await read('/snapshot')).json()).nonce;
+assert.equal((await post('/autonomy', { autonomy: true, nonce: nOn })).status, 200);
+assert.equal((await (await read('/snapshot')).json()).autonomy, true, 'and back on');
+say('PASS  /autonomy: no nonce 403, bad type 400, off->snapshot false+audited, on again');
+
 // 5. a foreign page gets nothing
 const evil = await fetch(ep.url + '/snapshot', { headers: { origin: 'https://evil.example' } });
 assert.equal(evil.status, 401, 'a foreign origin cannot read');
@@ -369,5 +386,5 @@ say('PASS  service absence: /act answers 503 with the reason, host still alive')
 stop();
 await new Promise(r => setTimeout(r, 150));
 fs.rmSync(STATE, { recursive: true, force: true });
-console.log('\n12 wire checks passed (the seam between the two halves)');
+console.log(`\n${checks} wire checks passed (the seam between the two halves)`);
 process.exit(0);
