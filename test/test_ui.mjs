@@ -1,6 +1,6 @@
 // Verifies the two halves that do NOT need a running dsh:
 //   1) host side (lib/index.js): loopback endpoint, token guard, snapshot/respond/revoke, state file
-//   2) client side (lib/client.js): the 世界 entry + the full-view page actually render
+//   2) client side (lib/client.js): the 共振 entry + the full-view page actually render
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -148,8 +148,8 @@ assert.ok(/总是允许/.test(html) && /拒绝/.test(html) && /允许一次/.tes
 assert.ok(/执行记录/.test(html) && /whoami/.test(html), 'audit trail renders with the executed command');
 const entryHtml = ReactDOMServer.renderToStaticMarkup(React.createElement(WorldEntry));
 assert.ok(/wc-globe/.test(entryHtml), 'the rail entry supplies the globe glyph');
-assert.ok(!/世界/.test(entryHtml), 'the entry must NOT repeat the label: the host renders the registered label itself (it showed 世界 世界)');
-say('PASS  client renders: 世界 entry + full page with pending row, 3 verdict buttons, grant row, audit row');
+assert.ok(!/共振/.test(entryHtml), 'the entry must NOT repeat the label: the host renders the registered label itself (it showed 世界 世界 once)');
+say('PASS  client renders: 共振 entry + full page with pending row, 3 verdict buttons, grant row, audit row');
 
 // disconnected state must be explicit AND must name the real cause. The check that used to live
 // here passed by accident: react-dom/server never runs useEffect, so `data` was null in every server
@@ -202,7 +202,7 @@ const entry = registered.find(r => r.cfg.name === 'sidebar.panellist');
 const view = registered.find(r => r.cfg.name === 'main');
 assert.equal(entry.cfg.id, 'world', 'the rail entry is keyed "world"');
 assert.equal(entry.cfg.order, 10, 'the rail entry carries an order');
-assert.equal(entry.cfg.label(), '世界', 'the rail entry is labelled 世界 (this is what the host renders)');
+assert.equal(entry.cfg.label(), '共振', 'the rail entry is labelled 共振 (this is what the host renders)');
 assert.equal(entry.Component.name, 'Guarded', 'a slot crash boundary wraps the entry');
 assert.notEqual(entry.Component, WorldEntry);
 assert.equal(view.cfg.key, 'world', 'the main takeover view is keyed "world"');
@@ -210,9 +210,9 @@ assert.equal(view.Component.name, 'Guarded', 'a slot crash boundary wraps the ma
 assert.notEqual(view.Component, WorldPage);
 // the wrapper is transparent when nothing throws
 const guardedHtml = ReactDOMServer.renderToStaticMarkup(React.createElement(view.Component));
-assert.ok(/世界/.test(guardedHtml), 'the guarded view still renders the page');
+assert.ok(/共振/.test(guardedHtml), 'the guarded view still renders the page');
 assert.ok(calls.every(c => c[2]), 'both slot registrations returned a value');
-say('PASS  apply() registers sidebar.panellist (世界, order 10) and main (the takeover view keyed world)');
+say('PASS  apply() registers sidebar.panellist (共振, order 10) and main (the takeover view keyed world)');
 
 for (const d of disposers) { try { await d?.(); } catch { } }
 try { mcp.kill(); } catch { }

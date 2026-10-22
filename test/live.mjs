@@ -2,7 +2,7 @@
 //
 // It runs the two real halves of the plugin — lib/index.js (loopback UI endpoint) and
 // mcp/server.mjs (the agent-facing MCP stdio server) — and mounts the real lib/client.js in a
-// browser with real React, so the 世界 page can be exercised end to end:
+// browser with real React, so the 共振 page can be exercised end to end:
 //   agent asks for a local action -> MCP tool blocks -> 待审批 appears live -> you click 允许一次
 //   -> the blocked tool call resumes and executes on this machine -> 执行记录 shows the exit code.
 //
