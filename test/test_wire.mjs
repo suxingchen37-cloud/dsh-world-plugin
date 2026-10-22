@@ -31,7 +31,16 @@ fs.writeFileSync(COMM, JSON.stringify({
       pendingGroupProposal: { id: 'p2', roomId: 'r2', name: '旧', status: 'pending', expiresAt: new Date(Date.now() - 60000).toISOString() },
     },
   ],
-  messages: [], runs: [], roomReadAt: {},
+  messages: [
+    { id: 'm1', roomId: 'r1', sender: { kind: 'bot', botId: 'b1', name: '甲' }, text: '跑完了，文件在附件', mentions: [],
+      createdAt: '2026-10-22T02:00:00.000Z', runId: 'run1', durationMs: 4926,
+      deliverables: [{ path: 'D:/work/明细.csv', name: '明细.csv', description: '6 条费用明细', size: 131 }],
+      toolActivity: [{ name: 'pwsh', status: 'ok', detail: 'x'.repeat(500) }] },
+  ],
+  runs: [{ id: 'run1', botId: 'b1', roomId: 'r1', origin: 'user', prompt: '回归任务', status: 'completed',
+    startedAt: '2026-10-22T02:00:00.000Z', finishedAt: '2026-10-22T02:00:04.926Z', controlRevision: 3 }],
+  // the real read cursor is an object { id, at } — comparing it with String() made every badge 0
+  roomReadAt: { r1: { id: 'mark1', at: '2026-10-21T00:00:00.000Z' } },
 }, null, 2));
 process.env.DSH_AGENT_COMMUNITY_STATE = COMM;
 // a private port range so the test never fights the real client
@@ -75,6 +84,11 @@ const svc = {
   },
   listBots: () => [{ id: 'prime1', name: '总理' }, { id: 'b1', name: '甲' }],
   listRooms: () => companyRoom ? [companyRoom, { id: 'r1' }] : [{ id: 'r1' }],
+  // the room objective is not in state.json; it lives behind this accessor
+  roomGoal: (roomId) => roomId === 'r1' ? { text: '本周产出一版可用的世界观设定', status: 'active' } : undefined,
+  approvedCalls: [],
+  // positional on purpose: (callId, outcome) — passing an object here used to do nothing at all
+  approveBotToolCall(callId, outcome) { svc.approvedCalls.push([callId, outcome]); },
   async createRoom(arg) {
     companyRoom = { id: 'company1', name: arg.name, memberIds: [...(arg.memberIds ?? [])], team: arg.team, directBotId: undefined };
     return companyRoom;
@@ -146,6 +160,28 @@ svc.approvalBridge.pending.delete('c1');
 const live2 = await (await read('/live')).json();
 assert.equal(live2.approvals.length, 0, 'a resolved approval leaves the live list');
 say('PASS  live state: room proposals + in-memory approvals/questions surface, resolved ones drop out');
+
+// the fields the redesigned 世界 page needs, each of which used to arrive empty or unusable
+const comm2 = await (await read('/community')).json();
+assert.equal(comm2.rooms.find(r => r.id === 'r1').unread, 1, 'a bot message after the read cursor counts as unread');
+assert.equal(comm2.rooms.find(r => r.id === 'r1').objective, '本周产出一版可用的世界观设定', 'the goal comes from the service, not state.json');
+const msg1 = comm2.messages.find(m => m.id === 'm1');
+assert.equal(msg1.deliverables[0].name, '明细.csv', 'deliverables reach the page — real data has no attachments');
+assert.equal(msg1.runId, 'run1');
+assert.equal(msg1.durationMs, 4926);
+assert.ok(msg1.toolActivity[0].detail.length <= 160, 'tool output is capped so one huge diff cannot eat the payload');
+assert.equal(comm2.runs.find(r => r.id === 'run1').durationMs, 4926, 'a finished run reports its duration');
+svc.approvalBridge.pending.set('c1', {}); // the earlier check resolved it; bring a live ticket back
+const liveApp = (await (await read('/live')).json()).approvals[0];
+assert.ok(liveApp.args.includes('ls'), '/live carries the full args so 看全文 can show them');
+assert.equal(liveApp.risk, 'irreversible', 'a bash ticket is flagged as the damaging kind');
+const nApr = (await (await read('/snapshot')).json()).nonce;
+const apr = await post('/act', { kind: 'approveBotToolCall', payload: { callId: 'c9', verdict: 'always' }, nonce: nApr });
+const aprJson = await apr.json();
+assert.equal(apr.status, 200, JSON.stringify(aprJson));
+assert.deepEqual(svc.approvedCalls.slice(-1)[0], ['c9', 'allowed-once'], 'the positional call really fires');
+assert.match(aprJson.note || '', /总是允许/, 'and the page is told 总是允许 is not a standing grant');
+say('PASS  page wiring: unread cursor, room goal via roomGoal(), deliverables/runId/duration, full args + risk, positional approve');
 const diag = await (await read('/diag')).json();
 assert.equal(diag.service, true, 'the host can reach the community service');
 assert.equal(diag.bots, 2);
