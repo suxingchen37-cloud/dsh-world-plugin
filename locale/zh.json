@@ -1,0 +1,9 @@
+{
+  "meta": {
+    "title": "世界 — 本机执行与 bot 群",
+    "description": "一个全新的整屏页面：看着并指挥在你这台机器上干活的 bot，逐条批准本机执行动作，浏览对外开放的目录根。模型一律沿用 profile 里的 DeepSeek 配置。"
+  },
+  "entry": "世界",
+  "title": "世界",
+  "subtitle": "DeepSeek 要动你的电脑时，先在这里问你。"
+}

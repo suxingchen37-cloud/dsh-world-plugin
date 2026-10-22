@@ -1,0 +1,6 @@
+# 运行时状态与凭据：ui-endpoint.json / client-config.json 里有一次性 token，绝不入库
+node_modules/
+state/
+client-config.json
+.dsh-project-memory/
+*.log
