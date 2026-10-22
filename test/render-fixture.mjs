@@ -63,7 +63,7 @@ const views = {
         React.createElement('svg', { className: 'wc-ico wc-globe', width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': 'true' },
           React.createElement('path', { d: 'M8 1.75a6.25 6.25 0 1 0 0 12.5 6.25 6.25 0 0 0 0-12.5Z', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5 }),
           React.createElement('path', { d: 'M1.75 8h12.5', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5 })),
-        React.createElement('span', null, '世界')))),
+        React.createElement('span', null, '共振')))),
 };
 
 const HOST = `
@@ -85,10 +85,10 @@ html,body{margin:0;height:100%;background:#f2f2f4;font-family:"SF Pro",-apple-sy
 
 for (const [file, el] of Object.entries(views)) {
   const body = renderToStaticMarkup(el);
-  const nav = file === 'fixture-entry.html' ? '' : `<div id="hostnav"><a href="#">深度对话</a><a href="#" data-on="1">世界</a><a href="#">插件市场</a></div>`;
+  const nav = file === 'fixture-entry.html' ? '' : `<div id="hostnav"><a href="#">深度对话</a><a href="#" data-on="1">共振</a><a href="#">插件市场</a></div>`;
   const stage = file === 'fixture-entry.html' ? body : `<div id="stage">${body}</div>`;
   const html = `<!doctype html><html lang="zh"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>世界 fixture</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>共振 fixture</title>
 <style>${CSS}</style><style>${HOST}</style></head>
 <body><div id="host">
   <div id="titlebar"><span class="dot"></span><span>DeepSeek Harness — desktop</span></div>

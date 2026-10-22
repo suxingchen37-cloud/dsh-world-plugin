@@ -56,9 +56,9 @@ mod.apply(ctx);
 assert.deepEqual(calls.slice(0, 2), ['sidebar.panellist', 'main'], 'registers the rail entry then the full view');
 assert.equal(registeredViews.length, 2, 'both registrations ran');
 assert.equal(registeredViews[0].cfg.id, 'world');
-assert.equal(registeredViews[0].cfg.label(), '世界', 'the rail entry is labelled 世界');
+assert.equal(registeredViews[0].cfg.label(), '共振', 'the rail entry is labelled 共振');
 assert.equal(registeredViews[1].cfg.key, 'world', 'the main takeover view is keyed world');
-console.log('PASS  apply(ctx) registers sidebar.panellist(世界) + main(world) without throwing');
+console.log('PASS  apply(ctx) registers sidebar.panellist(共振) + main(world) without throwing');
 
 // 5. a host ctx that throws on undeclared services, the way cordis actually behaves:
 //    reading ctx.remote / ctx.locale without declaring them must NOT take the page down.

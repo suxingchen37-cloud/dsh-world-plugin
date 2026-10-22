@@ -244,7 +244,7 @@ window.__cjs = { reg: {}, def(k, fn) { this.reg[k] = fn; }, req(k) {
 
 const html = `<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>世界 · live</title>
+<title>共振 · live</title>
 <script>${BOOT}</script>
 ${CJS.map(([k, f]) => `<script src="/vendor/${f}"></script>`).join('\n')}
 <script>window.__DSH_REACT__ = window.__cjs.req('react');</script>

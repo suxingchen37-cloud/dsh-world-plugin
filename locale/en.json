@@ -1,9 +1,9 @@
 {
   "meta": {
-    "title": "World — local computer & bot swarm",
+    "title": "Resonance — local computer & bot swarm",
     "description": "A new full-screen page: watch and command the bots working on this machine, approve every local action, browse the exposed roots. Models follow the profile's DeepSeek settings."
   },
-  "entry": "World",
-  "title": "World",
+  "entry": "Resonance",
+  "title": "Resonance",
   "subtitle": "Where the agent lives on your machine."
 }

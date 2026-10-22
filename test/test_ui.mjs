@@ -142,7 +142,7 @@ const html = ReactDOMServer.renderToStaticMarkup(React.createElement(WorldPage, 
   machineId: 'dsh-test', pending: [{ approvalId: 'ap_seed1', action: 'run-command', args: { command: 'node' }, createdAt: 'now' }],
   permissions: { 'read-file': 'always' }, grants: {}, audit: [{ kind: 'executed', action: 'run-command', command: 'whoami', exitCode: 0 }],
 } }));
-assert.ok(/世界/.test(html), 'page title renders in Chinese when navigator says zh-CN');
+assert.ok(/共振/.test(html), 'page title renders in Chinese when navigator says zh-CN');
 assert.ok(/run-command · ap_seed1|ap_seed1/.test(html) || /待审批/.test(html), 'pending section renders');
 assert.ok(/总是允许/.test(html) && /拒绝/.test(html) && /允许一次/.test(html), 'all three verdict buttons render');
 assert.ok(/执行记录/.test(html) && /whoami/.test(html), 'audit trail renders with the executed command');
