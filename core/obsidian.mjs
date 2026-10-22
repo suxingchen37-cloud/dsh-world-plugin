@@ -4,6 +4,9 @@
 //
 // Layout inside the vault:
 //   Bots/<bot>/身份.md            profession, persona (systemPrompt), model, permission
+//   Bots/<bot>/规则.md            what the bot (or the user) decided stands, with the three times
+//   Bots/<bot>/归档.md            retired entries — nothing here is ever deleted
+//   Bots/<bot>/账本.md            one line per change: who, when, what, why
 //   Bots/<bot>/记忆/<YYYY-MM>.md  one section per memory entry, newest first
 //   Bots/<bot>/任务/<room>.md     the task cards this bot owns on this room, with reports
 //   Bots/_索引.md                 one line per bot, [[wikilinks]] so the graph shows the swarm
@@ -11,6 +14,7 @@
 // Writes are additive and idempotent: a file is only rewritten when its rendered content changed.
 import fs from 'node:fs';
 import path from 'node:path';
+import { rulesDoc, archiveDoc, ledgerDoc } from './brain.mjs';
 
 export const FRONT = (bot) => [
   '---',
@@ -92,6 +96,13 @@ export function planWrites(vaultRoot, snapshot) {
     }
     for (const [m, list] of grouped) add(`${botDir(b.name)}/记忆/${m}.md`, memoryDoc(b, list));
     if (!grouped.size) add(`${botDir(b.name)}/记忆/README.md`, memoryDoc(b, []));
+    // the notebook the bot wrote for itself, mirrored next to the derived views: what it believes
+    // right now, what it retired instead of deleting, and the trail of how each changed
+    if (snapshot.brain) {
+      add(`${botDir(b.name)}/规则.md`, rulesDoc(b, snapshot.brain));
+      add(`${botDir(b.name)}/归档.md`, archiveDoc(b, snapshot.brain));
+      add(`${botDir(b.name)}/账本.md`, ledgerDoc(b, snapshot.brain));
+    }
     for (const r of rooms) {
       const mine = (r.assignments ?? []).filter(a => a.botId === b.id);
       if (mine.length) add(`${botDir(b.name)}/任务/${slug(r.name)}.md`, taskDoc(b, r, mine));

@@ -410,6 +410,76 @@ const crash = fs.readFileSync(path.join(STATE, 'crash.log'), 'utf8');
 assert.match(crash, /http/, 'the route failure is recorded in crash.log');
 say('PASS  failures are contained: sync throw 422, rejection 422, throwing route 500, host alive, crash.log written');
 
+// 7b. the notebook: look-before-write, nothing deleted, and the block that rides into a run
+// (the malformed-state check above leaves the env pointed at that file; /community re-reads it
+// per request, so put it back before asserting anything about what the page sees)
+process.env.DSH_AGENT_COMMUNITY_STATE = COMM;
+const nb0 = await (await read('/brain')).json();
+assert.ok(Array.isArray(nb0.entries) && Array.isArray(nb0.ledger), '/brain answers the app origin with no token');
+assert.ok(nb0.nonce, '/brain mints a nonce for the page');
+const brainRule = toolsByName.brain_rule;
+assert.ok(brainRule && toolsByName.brain_recall && toolsByName.brain_remember && toolsByName.brain_archive && toolsByName.brain_ledger,
+  'all five notebook tools are registered');
+const first = await brainRule.execute({ text: '所有成片必须 720p 以上', tags: ['交付'] }, execB1);
+assert.equal(first.ok, true, 'no conflict yet: embedded as-is');
+assert.equal(first.action, 'embed');
+const clash = await brainRule.execute({ text: '所有成片必须 1080p 以上', tags: ['交付'] }, execB1);
+assert.equal(clash.ok, false, 'a contradicting rule is surfaced, never silently overwritten');
+assert.equal(clash.needs_decision, true);
+assert.ok(clash.candidates[0].relation, 'and the candidate says what kind of clash: ' + JSON.stringify(clash.candidates));
+const fixed = await brainRule.execute({
+  text: '所有成片必须 1080p 以上', tags: ['交付'], action: 'retire', target_ids: [first.entry.id], reason: '平台会拒 720p',
+}, execB1);
+assert.equal(fixed.ok, true, JSON.stringify(fixed));
+assert.equal(fixed.retired, 1);
+const nbFile = JSON.parse(fs.readFileSync(path.join(STATE, 'brain.json'), 'utf8'));
+assert.equal(nbFile.entries.find(e => e.id === first.entry.id).status, 'retired', 'the old one is marked, not removed');
+assert.equal(nbFile.entries.filter(e => e.status !== 'retired').length, 1);
+assert.ok(nbFile.ledger.some(r => r.action === 'retire' && (r.summary || '').includes('平台会拒')), 'the ledger says why');
+const found = await toolsByName.brain_recall.execute({ query: '成片分辨率要求' }, execB1);
+assert.equal(found.hits.length, 1, 'recall only returns what still stands');
+assert.match(found.hits[0].text, /1080p/);
+const dead = await toolsByName.brain_recall.execute({ query: '720p', include_retired: true }, execB1);
+assert.ok(dead.hits.some(h => /720p/.test(h.text)), 'history is one flag away, not gone forever');
+const prefBad = await brainRule.execute({ text: '用户不喜欢详细解释', tags: ['偏好'] }, execB1);
+assert.equal(prefBad.ok, true, 'no preference entry yet');
+const prefClash = await brainRule.execute({ text: '用户喜欢详细解释', tags: ['偏好'] }, execB1);
+assert.ok(prefClash.candidates.some(c => c.relation === 'preference' && c.needsUser), 'a taste clash is flagged as needing the user');
+const forced = await brainRule.execute({ text: '用户喜欢详细解释', action: 'retire', target_ids: [prefBad.entry.id] }, execB1);
+assert.equal(forced.ok, false, 'and it cannot be resolved without saying the user answered: ' + JSON.stringify(forced));
+assert.match(forced.error, /用户/);
+const teamDenied = await brainRule.execute({ text: '公司规矩：对外发送一律先审批', scope: 'team' }, execB1);
+assert.equal(teamDenied.ok, false, 'a non-prime cannot write the shared book');
+assert.match(teamDenied.error, /总理/);
+const teamOk = await brainRule.execute({ text: '公司规矩：对外发送一律先审批', scope: 'team' }, { agent: { session: { id: 'ac:r1:prime1' } } });
+assert.equal(teamOk.ok, true, 'the prime can');
+postedTeam = null;
+const crossBot = await brainRule.execute({ text: '对外发送不用先问，直接发', tags: ['规矩'] }, execB1);
+assert.ok(postedTeam, 'a bot that steps on the shared book reports itself to the prime in the company group');
+assert.equal(postedTeam.roomId, 'company1');
+assert.match(postedTeam.text, /@总理/);
+assert.match(postedTeam.text, /对外发送/);
+assert.equal(queuedRun?.botId, 'prime1', 'and the prime is woken to adjudicate');
+say('PASS  cross-bot clash: written to 公司大群 @总理 and the prime is woken on its stable session');
+// the notebook reaches a run by riding on systemPrompt, and the page must never see that block
+await new Promise(r => setTimeout(r, 250));
+assert.ok(String(lastUpdate?.systemPrompt ?? '').includes('你自己记下的现行规则'), 'the host pushed the live rules into the bot instructions');
+assert.match(String(lastUpdate.systemPrompt), /1080p/);
+// persist what the service would have stored, then read the page's view of the same bot
+const withBlock = JSON.parse(fs.readFileSync(COMM, 'utf8'));
+withBlock.bots.find(b => b.id === 'b1').systemPrompt = '你是回归测试机器人。' + lastUpdate.systemPrompt.slice(lastUpdate.systemPrompt.indexOf('\n\n<!-- dsh-local-computer:notebook -->'));
+fs.writeFileSync(COMM, JSON.stringify(withBlock, null, 2));
+const commStrip = await (await read('/community')).json();
+const seenPersona = commStrip.bots.find(b => b.id === 'b1').systemPrompt;
+assert.equal(seenPersona, '你是回归测试机器人。', 'the persona the page shows stays exactly what the user typed');
+const nNb = (await (await read('/brain')).json()).nonce;
+assert.equal((await post('/brain', { op: 'add', botId: 'b1', text: '用户自己记的一条', kind: 'rule' })).status, 403, 'a notebook write without a nonce is refused');
+const userAdd = await post('/brain', { op: 'add', botId: 'b1', text: '用户自己记的一条', kind: 'rule', nonce: nNb });
+assert.equal(userAdd.status, 200, JSON.stringify(await userAdd.json().catch(() => null)));
+const nbAfter = await (await read('/brain')).json();
+assert.ok(nbAfter.entries.some(e => e.text === '用户自己记的一条' && e.writtenBy === 'user'), 'the user can author entries too');
+say('PASS  notebook: conflict before write, retire-not-delete, ledger, team gate, prompt injection, nonce-gated user writes');
+
 // 8. if the community service goes away, actions degrade to a clear 503 — still no crash
 svcOn = false;
 const n3 = (await (await read('/snapshot')).json()).nonce;
