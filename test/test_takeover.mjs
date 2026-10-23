@@ -77,14 +77,14 @@ const html = renderToStaticMarkup(React.createElement(main.Component));
 assert.ok(html.includes('rs-shell'));
 assert.ok(html.includes('返回 DeepSeek'));
 assert.ok(html.includes('AI 协作空间'));
-assert.equal((html.match(/class="rs-nav-button"/g) || []).length, 5);
+assert.equal((html.match(/class="rs-nav-button"/g) || []).length, 8, 'the shell shows the eight places of the design');
 assert.ok(html.includes('共振'));
-for (const view of ['bots', 'notebook', 'activity']) {
+for (const view of ['bots', 'notebook', 'home', 'sessions', 'projects', 'caps']) {
   const page = renderToStaticMarkup(React.createElement(api.WorldPage, { initialFocus: view }));
   assert.ok(page.includes('rs-view-heading'));
   assert.ok(!/undefined|NaN/.test(page));
 }
-console.log('PASS actual registered main view renders the independent shell, return entry and five real feature routes');
+console.log('PASS actual registered main view renders the independent shell, return entry and eight real feature routes');
 
 for (const [name, css] of [['prototype', api.RS_CSS], ['shell', api.RESONANCE_SHELL_CSS]]) {
   assert.equal((css.match(/{/g) || []).length, (css.match(/}/g) || []).length, name + ' stylesheet braces');
