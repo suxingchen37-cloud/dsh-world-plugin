@@ -143,6 +143,16 @@ const html = ReactDOMServer.renderToStaticMarkup(React.createElement(WorldPage, 
   permissions: { 'read-file': 'always' }, grants: {}, audit: [{ kind: 'executed', action: 'run-command', command: 'whoami', exitCode: 0 }],
 } }));
 assert.ok(/共振/.test(html), 'page title renders in Chinese when navigator says zh-CN');
+// the first-run guide is the only place a new user learns that nothing runs until they say so
+const { Onboarding } = CLIENT_API;
+assert.equal(typeof Onboarding, 'function', 'the guide is exported for rendering');
+const guide = ReactDOMServer.renderToStaticMarkup(React.createElement(Onboarding, {
+  snapshot: { autonomy: false }, swarm: { bots: [{ id: 'b1' }] }, memory: { available: false },
+  autonomy: false, onAutonomy: async () => { }, onClose: () => { },
+}));
+assert.ok(/欢迎用「共振」/.test(guide), 'step 1 says welcome');
+assert.ok(/1 \/ 3/.test(guide), 'the guide counts its steps');
+assert.ok(/本机执行默认要你亲手批/.test(guide), 'and states the fail-closed default in plain words');
 assert.ok(/run-command · ap_seed1|ap_seed1/.test(html) || /待审批/.test(html), 'pending section renders');
 assert.ok(/总是允许/.test(html) && /拒绝/.test(html) && /允许一次/.test(html), 'all three verdict buttons render');
 assert.ok(/执行记录/.test(html) && /whoami/.test(html), 'audit trail renders with the executed command');
