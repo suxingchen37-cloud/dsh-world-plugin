@@ -43,7 +43,7 @@
   },
   "engines": {
     "node": ">=22.19",
-    "dsh": ">=0.4"
+    "dsh": ">=0.2.0-0"
   },
   "license": "MIT",
   "peerDependencies": {
