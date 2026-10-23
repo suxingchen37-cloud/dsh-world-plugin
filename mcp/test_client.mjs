@@ -63,7 +63,15 @@ const caps = text(await rpc('tools/call', { name: 'computer_capabilities', argum
 assert.equal(caps.kind, 'user-computer');
 assert.equal(caps.actions['read-messages'], 'setting', 'scope table must come from the reconstructed model');
 assert.equal(caps.serverAuthoritative, undefined, 'the server-side authorization shortcut is gone');
-assert.equal(caps.autonomy, true, 'autonomy is advertised so the agent knows it may self-answer');
+assert.equal(caps.autonomy, false, 'autonomy defaults to OFF: the agent must not answer its own tickets until the human turns it on');
+// this test then emulates the human flipping the page switch, because everything below is about
+// what the gate does *after* consent exists
+{
+  const f = path.join(STATE, 'computer.json');
+  const s = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {};
+  s.autonomy = true;
+  fs.writeFileSync(f, JSON.stringify(s, null, 2));
+}
 say(`PASS  capabilities: kind=${caps.kind}, run-command=${caps.actions['run-command']}, read-messages=${caps.actions['read-messages']}`);
 
 // 4. default permission = ask -> shell must NOT execute, must return an approval ticket

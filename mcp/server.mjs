@@ -62,7 +62,7 @@ function audit(s, entry) {
   return e;
 }
 function emptyState() {
-  return { machineId: MACHINE_ID, grants: {}, pending: [], audit: [], permissions: {}, autonomy: true };
+  return { machineId: MACHINE_ID, grants: {}, pending: [], audit: [], permissions: {}, autonomy: false };
 }
 // A tmp file plus a rename: the host route never reads a half-written ledger, and a crash between
 // truncate and write cannot leave a truncated state file for the next reader.
@@ -174,9 +174,9 @@ async function call(name, args) {
   const state = load();
   switch (name) {
     case 'computer_status':
-      return { machineId: state.machineId, autonomy: state.autonomy !== false, pending: state.pending.filter(p => !p.granted).length, granted: state.grants, permissions: state.permissions, lastAudit: state.audit.slice(-5), sandbox: path.resolve(SANDBOX) };
+      return { machineId: state.machineId, autonomy: state.autonomy === true, pending: state.pending.filter(p => !p.granted).length, granted: state.grants, permissions: state.permissions, lastAudit: state.audit.slice(-5), sandbox: path.resolve(SANDBOX) };
     case 'computer_capabilities':
-      return { machineId: state.machineId, label: state.label ?? 'dsh-local-computer', kind: 'user-computer', variant: 'plugin', supervised: false, autonomy: state.autonomy !== false, actions: ACTION_SCOPE, readRoots: READ_ROOTS, writeRoots: WRITE_ROOTS, allowedRoots: READ_ROOTS };
+      return { machineId: state.machineId, label: state.label ?? 'dsh-local-computer', kind: 'user-computer', variant: 'plugin', supervised: false, autonomy: state.autonomy === true, actions: ACTION_SCOPE, readRoots: READ_ROOTS, writeRoots: WRITE_ROOTS, allowedRoots: READ_ROOTS };
     case 'computer_list_dir': {
       const p = path.resolve(args.path);
       if (!insideRead(p)) return { error: 'outside allowed roots' };
@@ -256,7 +256,7 @@ async function call(name, args) {
     case 'computer_respond': {
       // Manual mode: the agent may not answer its own ticket. Only the human, on the 世界 page,
       // can; the page writes resolvedBy:'user', this path writes 'agent'.
-      if (state.autonomy === false) {
+      if (state.autonomy !== true) {
         return { status: 'refused', reason: 'autonomy-off', hint: '请在「世界」页面表态' };
       }
       const item = state.pending.find(p => p.approvalId === args.approvalId);
@@ -269,7 +269,7 @@ async function call(name, args) {
       return { ok: true, effect: args.verdict === 'always' ? `action ${item.action} now always-allowed` : args.verdict };
     }
     case 'computer_retire_approval': {
-      if (state.autonomy === false) {
+      if (state.autonomy !== true) {
         return { status: 'refused', reason: 'autonomy-off', hint: '请在「世界」页面表态' };
       }
       const had = state.pending.some(p => p.approvalId === args.approvalId);
