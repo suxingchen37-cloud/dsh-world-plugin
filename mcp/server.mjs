@@ -146,7 +146,7 @@ function redact(a) {
   return out;
 }
 
-const TOOLS = [
+export const TOOLS = [
   { name: 'computer_status', description: '查看本机执行器状态：机器 id、已启用能力、待审批数、最近审计。', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true } },
   { name: 'computer_capabilities', description: '声明本机能做什么（对应握手里的 capabilities）与每个动作的作用域(global/setting/subject)。', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true } },
   { name: 'computer_shell', description: '在本机执行一条命令（不经 shell，参数数组直传）。受授权闸门约束：可能返回 permission_pending + approvalId。', inputSchema: { type: 'object', properties: { command: { type: 'string' }, args: { type: 'array', items: { type: 'string' }, maxItems: 32 }, cwd: { type: 'string', description: '工作目录，必须位于可写根内' }, timeoutMs: { type: 'number', description: '超时毫秒，默认 120000，上限 600000；超时先 SIGTERM，3 秒后 SIGKILL' }, approvalId: { type: 'string' } }, required: ['command'], additionalProperties: false } },
@@ -170,7 +170,7 @@ const refuseAudit = (state, action, reason, args, extra = {}) => {
   save(state);
 };
 
-async function call(name, args) {
+export async function call(name, args) {
   const state = load();
   switch (name) {
     case 'computer_status':
@@ -284,6 +284,10 @@ async function call(name, args) {
 }
 
 // ---- MCP stdio transport: newline-delimited JSON-RPC 2.0 ----
+// Only when this file is the entry point. The host plugin imports `call` above and registers the
+// same tools through ctx.tools, in which case there is no stdin to serve.
+const asStdioServer = !!process.argv[1] && /server\.mjs$/.test(process.argv[1].replace(/\\/g, '/'));
+if (asStdioServer) {
 let buf = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', chunk => {
@@ -327,3 +331,5 @@ async function handle(msg) {
   }
 }
 process.stderr.write(`[dsh-local-computer] mcp stdio up; state=${STATE_FILE}; read=${READ_ROOTS.join(',')}; write=${WRITE_ROOTS.join(',')}\n`);
+
+}

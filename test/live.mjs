@@ -182,7 +182,7 @@ const { apply } = await import(pathToFileURL(path.join(ROOT, 'lib', 'index.js'))
 const stop = apply({
   logger: { info: (...a) => console.log('[host]', ...a) },
   get: (name) => (name === 'agentCommunity' ? mockSvc ?? undefined : undefined),
-  tools: { register(definition) { applyTool = definition; return () => { }; } },
+  tools: { register(definition) { if (definition.name === 'apply_new_bot') applyTool = definition; return () => { }; } },
 });
 let ep = null;
 for (let i = 0; i < 60 && !ep; i++) {

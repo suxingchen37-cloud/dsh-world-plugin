@@ -511,6 +511,24 @@ const nbAfter = await (await read('/brain')).json();
 assert.ok(nbAfter.entries.some(e => e.text === '用户自己记的一条' && e.writtenBy === 'user'), 'the user can author entries too');
 say('PASS  notebook: conflict before write, retire-not-delete, ledger, team gate, prompt injection, nonce-gated user writes');
 
+// 7c. the nine local-execution tools are registered by THIS plugin, not by an MCP child process:
+// that is what lets the bundle patch ship without a single absolute path.
+const COMPUTER = ['computer_status', 'computer_capabilities', 'computer_shell', 'computer_read_file',
+  'computer_write_file', 'computer_list_dir', 'computer_pending', 'computer_respond', 'computer_retire_approval'];
+for (const n of COMPUTER) assert.ok(toolsByName[n], 'the host registers ' + n);
+const cst = await toolsByName.computer_status.execute({});
+assert.ok(String(cst.machineId || '').startsWith('dsh-'), 'status answers with a machine id: ' + JSON.stringify(cst));
+const ccap = await toolsByName.computer_capabilities.execute({});
+assert.equal(ccap.kind, 'user-computer');
+assert.equal(ccap.actions['run-command'], 'global', 'the scope table still comes from the reconstructed model');
+const cshell = await toolsByName.computer_shell.execute({ command: process.execPath, args: ['-e', 'console.log(1)'] });
+assert.equal(cshell.status, 'permission_pending', 'an unapproved command is held: ' + JSON.stringify(cshell));
+const cdeny = await toolsByName.computer_respond.execute({ approvalId: cshell.approvalId, verdict: 'deny' });
+assert.equal(cdeny.ok, true, JSON.stringify(cdeny));
+const cafter = await toolsByName.computer_pending.execute({});
+assert.ok(!cafter.pending.some(p => p.approvalId === cshell.approvalId), 'the denied ticket leaves the queue');
+say('PASS  local-execution tools: all nine registered host-side, status/capabilities answer, shell held then denied');
+
 // 8. if the community service goes away, actions degrade to a clear 503 — still no crash
 svcOn = false;
 const n3 = (await (await read('/snapshot')).json()).nonce;
