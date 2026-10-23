@@ -186,6 +186,8 @@ assert.ok(!/等你批准/.test(autoOn), 'and not the waiting label');
 assert.ok(/等你批准/.test(autoOff), 'autonomy=false renders the 等你批准 marker');
 assert.ok(!/自主运行/.test(autoOff), 'and not the autonomous label');
 assert.ok(/data-autonomy="on"/.test(autoOn) && /data-autonomy="off"/.test(autoOff), 'the switch mirrors the state');
+assert.ok(/本机执行默认要你批准/.test(autoOff), 'first run explains that nothing runs until the human says so');
+assert.ok(!/本机执行默认要你批准/.test(autoOn), 'and it disappears once autonomy is on');
 say('PASS  autonomy marker follows the snapshot: true -> 自主运行, false -> 等你批准');
 
 // apply() must register both slots defensively
