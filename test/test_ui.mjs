@@ -155,7 +155,13 @@ assert.ok(/1 \/ 3/.test(guide), 'the guide counts its steps');
 assert.ok(/本机执行默认要你亲手批/.test(guide), 'and states the fail-closed default in plain words');
 assert.ok(/run-command · ap_seed1|ap_seed1/.test(html) || /待审批/.test(html), 'pending section renders');
 assert.ok(/总是允许/.test(html) && /拒绝/.test(html) && /允许一次/.test(html), 'all three verdict buttons render');
-assert.ok(/执行记录/.test(html) && /whoami/.test(html), 'audit trail renders with the executed command');
+assert.ok(/待你决定/.test(html) && /权限与目录/.test(html), 'the machine place shows its four tabs');
+const { ComputerView } = CLIENT_API;
+const grantsHtml = ReactDOMServer.renderToStaticMarkup(React.createElement(ComputerView, {
+  initialTab: 'grants', permissions: { 'read-file': 'always' }, roots: [], audit: [{ kind: 'executed', action: 'run-command', command: 'whoami', exitCode: 0 }],
+}));
+assert.ok(/read-file/.test(grantsHtml), 'the grants tab lists the standing permissions');
+assert.ok(/whoami/.test(grantsHtml), 'and the audit trail with the executed command');
 const entryHtml = ReactDOMServer.renderToStaticMarkup(React.createElement(WorldEntry));
 assert.ok(/wc-globe/.test(entryHtml), 'the rail entry supplies the globe glyph');
 assert.ok(!/共振/.test(entryHtml), 'the entry must NOT repeat the label: the host renders the registered label itself (it showed 世界 世界 once)');
