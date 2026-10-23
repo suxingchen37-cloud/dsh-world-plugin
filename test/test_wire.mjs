@@ -238,7 +238,7 @@ assert.match(postedTeam?.text || '', /@总理/);
 assert.match(postedTeam?.text || '', /数据清洗|整理 CSV/);
 say('PASS  company group: created with all bots led by the prime; apply_new_bot posts @总理 there');
 
-// ---- ranks are permissions: 总理 > 管方向（计划+控运行）> 小官（守一个领域）> 组长（最底层干活） ----
+// ---- ranks are permissions: CEO > 经理（计划+控运行）> 组长（守一个领域）> 组员（最底层干活） ----
 const compState = JSON.parse(fs.readFileSync(path.join(STATE, 'computer.json'), 'utf8'));
 const setRank = (rank) => { const st = JSON.parse(fs.readFileSync(path.join(STATE, 'computer.json'), 'utf8')); st.ranks = { ...(st.ranks ?? {}), b1: rank }; fs.writeFileSync(path.join(STATE, 'computer.json'), JSON.stringify(st, null, 2)); };
 const execB1 = { agent: { session: { id: 'ac:r1:b1' } } };
@@ -249,7 +249,7 @@ assert.equal(who.rank, 'officer');
 assert.equal(who.companyRoomId, 'company1');
 const deniedPlan = await toolsByName.org_plan.execute({ goal: '做一版方案' }, execB1);
 assert.equal(deniedPlan.ok, false, 'an officer cannot plan');
-assert.match(deniedPlan.error, /管方向/);
+assert.match(deniedPlan.error, /经理/);
 const deniedCtrl = await toolsByName.org_control.execute({ run_id: 'run1', action: 'cancel' }, execB1);
 assert.equal(deniedCtrl.ok, false, 'an officer cannot control runs');
 
@@ -257,7 +257,7 @@ assert.equal(deniedCtrl.ok, false, 'an officer cannot control runs');
 setRank('execution');
 const execCtrl = await toolsByName.org_control.execute({ run_id: 'run1', action: 'cancel' }, execB1);
 assert.equal(execCtrl.ok, false, 'a lead cannot control runs');
-assert.match(execCtrl.error, /管方向/, 'the refusal names who can: ' + execCtrl.error);
+assert.match(execCtrl.error, /经理/, 'the refusal names who can: ' + execCtrl.error);
 const execPlan = await toolsByName.org_plan.execute({ goal: 'x' }, execB1);
 assert.equal(execPlan.ok, false, 'a lead cannot plan');
 
@@ -277,7 +277,7 @@ assert.equal(roster.companyRoomId, 'company1');
 assert.equal(roster.prime, 'prime1');
 const meRow = roster.roster.find(r => r.id === 'b1');
 assert.equal(meRow.rank, 'direction');
-assert.equal(meRow.rankName, '管方向');
+assert.equal(meRow.rankName, '经理');
 assert.ok(roster.roster.some(r => r.id === 'prime1' && r.domain === '全公司'), 'the prime owns the whole company');
 
 // 负责范围 is ours too: the UI writes it through /act updateBot, the service never sees it
@@ -301,13 +301,13 @@ assert.equal(unranked.bots.find(b => b.id === 'b1').rank, 'execution', 'the page
 assert.equal(unranked.bots.find(b => b.id === 'b1').domain, '', 'clearing the domain clears it');
 const freshRank = await toolsByName.org_rank.execute({}, execB1);
 assert.equal(freshRank.rank, 'execution');
-assert.equal(freshRank.rankName, '组长', 'the bot is told the same thing the page shows');
+assert.equal(freshRank.rankName, '组员', 'the bot is told the same thing the page shows');
 
 const primeWho = await toolsByName.org_rank.execute({}, { agent: { session: { id: 'ac:r1:prime1' } } });
 assert.equal(primeWho.rank, 'boss');
 const primeCtrl = await toolsByName.org_control.execute({ run_id: 'run1', action: 'cancel' }, { agent: { session: { id: 'ac:r1:prime1' } } });
 assert.equal(primeCtrl.ok, true, 'the prime can always control runs: ' + JSON.stringify(primeCtrl));
-say('PASS  ranks = permissions: only 总理/管方向 plan and control; 小官/组长 denied; roster + domain + fresh-hire default persist');
+say('PASS  ranks = permissions: only CEO/经理 plan and control; 组长/组员 denied; roster + domain + fresh-hire default persist');
 
 // ---- appointment is the prime's, and it announces itself ----
 const appoint = toolsByName.org_appoint;
@@ -322,7 +322,7 @@ assert.equal((await appoint.execute({ bot: '查无此人', rank: 'officer' }, PR
 postedTeam = null;
 const made = await appoint.execute({ bot: '甲', rank: 'officer', domain: '生活', reason: '他盯日常事务更稳' }, PRIME_SESS);
 assert.equal(made.ok, true, JSON.stringify(made));
-assert.equal(made.rankName, '小官');
+assert.equal(made.rankName, '组长');
 const stAppoint = JSON.parse(fs.readFileSync(path.join(STATE, 'computer.json'), 'utf8'));
 assert.equal(stAppoint.ranks.b1, 'officer', 'the rank is stored');
 assert.equal(stAppoint.domains.b1, '生活', 'and so is the domain');
@@ -330,13 +330,13 @@ assert.ok(postedTeam, 'the appointment is announced in the company group');
 assert.equal(postedTeam.roomId, 'company1');
 assert.equal(postedTeam.kind, 'appoint');
 assert.match(postedTeam.text, /@甲/);
-assert.match(postedTeam.text, /小官/);
+assert.match(postedTeam.text, /组长/);
 assert.match(postedTeam.text, /生活/);
 const nbAppoint = await (await read('/brain')).json();
 assert.ok(nbAppoint.entries.some(e => e.scope === 'team' && /任命 甲/.test(e.text) && e.kind === 'log'),
   'and it is written into the team book as a decision, not as a standing rule');
 const rosterAfter = await toolsByName.org_roster.execute({}, PRIME_SESS);
-assert.equal(rosterAfter.roster.find(r => r.id === 'b1').rankName, '小官', 'the roster reflects it immediately');
+assert.equal(rosterAfter.roster.find(r => r.id === 'b1').rankName, '组长', 'the roster reflects it immediately');
 assert.equal(rosterAfter.roster.find(r => r.id === 'b1').domain, '生活');
 say('PASS  org_appoint: prime only, prime untouchable, no rank above boss, announced + logged + roster updated');
 const browse = await read('/browse');

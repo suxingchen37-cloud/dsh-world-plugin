@@ -269,7 +269,7 @@ console.log(`PASS  action allowlist: ${[...used].length} client actions all acce
 // 21. the prime is visibly protected: no delete in its detail dialog or context menu.
 const primeBot = { ...nt.bots[0], protected: true };
 const primeHtml = rtm(React.createElement(BD2, { bot: primeBot, rooms: nt.rooms, runs: [], memories: [] }));
-assert.ok(/总理/.test(primeHtml), 'the prime is labelled');
+assert.ok(/CEO/.test(primeHtml), 'the prime is labelled with its rank');
 assert.ok(!/删除/.test(primeHtml), 'the prime offers no delete action');
 assert.ok(/menu\.bot\.protected \? null : item\(t\('delete'\)/.test(src), 'the context menu hides delete for the prime');
 console.log('PASS  prime UI: labelled, no delete in the detail dialog or context menu');
