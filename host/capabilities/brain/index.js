@@ -2,14 +2,16 @@
 // 纯逻辑在 ./rules.mjs（从旧 core/brain.mjs + core/obsidian.mjs 合并而来，行为不变）；
 // 这里只做三件事：注册 brain_* 工具、把现行规则注入 bot 的系统提示、按粗粒度定时器
 // 把本子镜像到 Obsidian。json 本子是真相之源，Obsidian 只是备份，坏了不阻塞任何写入。
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
   loadBrain, saveBrain, emptyBrain, add as noteAdd, recall, findConflicts,
   retire, integrate, ledgerFor, ACTIONS, stripNotes, notesBlock,
-  planWrites, diffPlan, applyPlan,
+  planWrites, diffPlan, applyPlan, botDir,
 } from './rules.mjs';
+import { INBOX_HINT, parseInbox, consumeInbox, rejectBlock } from './inbox.mjs';
 
 const BRAIN_MIRROR_MS = 8 * 60 * 60 * 1000;    // 一天三遍，够了
 const BRAIN_MIRROR_TICK_MS = 10 * 60 * 1000;   // 粗粒度唤醒，干净时开销可忽略
@@ -320,5 +322,84 @@ export function register(rt) {
     },
   });
 
-  return {};
+  // ---- 收件箱：Obsidian 双向同步的"进"方向 ----------------------------------
+  // 用户在 vault 的 Bots/<bot>/收件箱.md 里一行一条写规矩，这里轮询收割：
+  // 走 consumeInbox 的查冲突流程；成功的立即镜像回 规则.md，被拒的退到 收件箱-退回.md。
+  // 收件箱文件永远归用户所有——镜像（planWrites/applyPlan）从不写它。
+  const INBOX_POLL_MS = 15_000;
+  const INBOX_NAME = '收件箱.md';
+  const REJECT_NAME = '收件箱-退回.md';
+  const TEAM_INBOX = '_团队收件箱.md';
+  const inboxStore = rt.state('brain-inbox');
+  const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex');
+
+  async function scanInboxes(reason = 'poll') {
+    try {
+      const vault = resolveVault();
+      if (!vault) return;
+      const snap = communitySnapshot();
+      if (!snap) return;
+      const primeId = (await rt.request('prime-id')) ?? 'user';
+      const seen = inboxStore.load() ?? {};
+      const wanted = new Set();
+      const jobs = snap.bots.map(bot => ({
+        file: path.join(vault, botDir(bot.name), INBOX_NAME),
+        scope: 'bot', botId: bot.id, botName: bot.name,
+      }));
+      jobs.push({ file: path.join(vault, 'Bots', TEAM_INBOX), scope: 'team', botId: primeId, botName: '团队' });
+
+      let brain = readBrain();
+      let added = 0;
+      for (const job of jobs) {
+        wanted.add(job.file);
+        let content;
+        try { content = fs.readFileSync(job.file, 'utf8'); }
+        catch {
+          // 还没有收件箱就播种一份带说明的空文件；之后它完全归用户
+          try {
+            fs.mkdirSync(path.dirname(job.file), { recursive: true });
+            fs.writeFileSync(job.file, INBOX_HINT, 'utf8');
+            seen[job.file] = sha1(INBOX_HINT);
+          } catch { }
+          continue;
+        }
+        const hash = sha1(content);
+        if (seen[job.file] === hash) continue;          // 没变，别打扰
+        const lines = parseInbox(content);
+        if (!lines.length) { seen[job.file] = hash; continue; }
+        const res = consumeInbox(brain, { ...job, lines });
+        added += res.added.length;
+        if (res.rejected.length) {
+          try {
+            fs.mkdirSync(path.dirname(job.file), { recursive: true });
+            fs.appendFileSync(path.join(path.dirname(job.file), REJECT_NAME), rejectBlock(res.rejected) + '\n', 'utf8');
+          } catch (e) { rt.crash('inbox-reject', e); }
+        }
+        // 清空收件箱（保留说明头）。若在读取与写回之间用户又改了文件（哈希对不上），
+        // 这轮放弃清空，下一轮会重新收割那部分——绝不吞掉用户正在打的字。
+        const after = INBOX_HINT;
+        try {
+          const nowHash = sha1(fs.readFileSync(job.file, 'utf8'));
+          if (nowHash === hash) {
+            fs.writeFileSync(job.file, after, 'utf8');
+            seen[job.file] = sha1(after);
+          }
+        } catch (e) { rt.crash('inbox-writeback', e); }
+      }
+      for (const k of Object.keys(seen)) if (!wanted.has(k)) delete seen[k];
+      inboxStore.save(seen);
+      if (added > 0) {
+        writeBrain(brain);
+        void syncNotes(rt.community());
+        mirrorBrainNow(reason);                        // 立即镜像：几秒内 规则.md 就能看到新规矩
+      }
+    } catch (e) { rt.crash('brain-inbox', e); }
+  }
+  void scanInboxes('mount');
+  rt.interval(INBOX_POLL_MS, () => void scanInboxes());
+
+  return {
+    scanInboxes,                                        // 测试与排障入口
+    dispose() { },
+  };
 }

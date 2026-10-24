@@ -24,7 +24,7 @@ org/brain 的工具会优雅降级（工具报"团队服务还没就绪"），co
 | `host/index.js` | 宿主入口（cordis 契约）：装配 runtime → 扫描 `host/capabilities/` → 逐个 register → 统一 dispose。无业务 |
 | `host/runtime.js` | 共享设施：crash/log（模块级，根治旧版 `writeCrash is not defined`）、原子状态库（损坏自动隔离）、agentCommunity 访问器+patch、工具注册、事件/询问总线 |
 | `host/capabilities/org/` | 能力：组织。总理引导、公司大群、等级制、`apply_new_bot` + 5 个 `org_*` 工具；服务层守卫"只有总理能建 Bot" |
-| `host/capabilities/brain/` | 能力：笔记本。5 个 `brain_*` 工具、规则注入 bot 系统提示、Obsidian 镜像（粗定时器，一天三遍）；纯逻辑在 `rules.mjs` |
+| `host/capabilities/brain/` | 能力：笔记本。5 个 `brain_*` 工具、规则注入 bot 系统提示、Obsidian 镜像（粗定时器，一天三遍）；纯逻辑在 `rules.mjs`。**双向**：`Bots/<bot>/收件箱.md` 里用户手写的规矩自动进本子（15s 轮询收割，走查冲突流程，被拒的退到 `收件箱-退回.md`，绝不自动覆盖；收成功立即镜像回 `规则.md`） |
 | `host/capabilities/computer/` | 能力：本机执行。审批队列/授权闸门/daemon 调度（`engine.mjs` + `gate.mjs`），经 `mcp.mjs` 暴露为 9 个 `computer_*` MCP 工具 |
 | `host/capabilities/console/` | 能力：控制台（前端回归第一版）。loopback HTTP（默认 47941）+ 原生网页：能力总览、名册、笔记本、审批与审计；对兄弟能力只读，写只走公开接口（facade 例外见 SPEC §8） |
 | `host/capabilities/_template/` | 新能力脚手架（注册表自动跳过） |

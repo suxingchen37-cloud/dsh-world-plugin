@@ -277,7 +277,8 @@ export function rulesDoc(bot, brain, now = nowIso()) {
   ].join('\n')).join('\n\n');
   return `---\nbot: ${bot.name}\nkind: rules\n---\n\n# ${bot.name} · 现行规则与记事\n\n`
     + (rows || '_还没有条目。_')
-    + `\n\n> 过期或被取代的条目不在这份里，去 [[归档]] 看；改动的来龙去脉去 [[账本]] 看。\n`;
+    + `\n\n> 过期或被取代的条目不在这份里，去 [[归档]] 看；改动的来龙去脉去 [[账本]] 看。\n`
+    + `> 要给 ${bot.name} 加新规矩：在 [[收件箱]] 里一行一条写下来，保存后几秒自动进本子。\n`;
 }
 
 export function archiveDoc(bot, brain) {

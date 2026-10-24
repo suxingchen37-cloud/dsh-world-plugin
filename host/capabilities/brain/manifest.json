@@ -1,11 +1,11 @@
 {
   "name": "brain",
   "title": "笔记本",
-  "version": "1.0.0",
-  "description": "每个 Bot 自己的笔记本：三条时间（写下/关于/过期）、写前查冲突、永不删除只下线、每次改动记账本。现行规则自动注入 Bot 的系统提示；Obsidian vault 是给人看的镜像（每 Bot 独立目录，只写自己的）。",
+  "version": "1.1.0",
+  "description": "每个 Bot 自己的笔记本：三条时间（写下/关于/过期）、写前查冲突、永不删除只下线、每次改动记账本。现行规则自动注入 Bot 的系统提示。Obsidian 双向：vault 是给人看的镜像（每 Bot 独立目录，只写自己的）；Bots/<bot>/收件箱.md 里用户手写的规矩会自动进本子（走查冲突流程，被拒的退回收件箱-退回.md）。",
   "surfaces": ["host"],
   "requires": ["agentCommunity"],
-  "state": ["brain.json"],
+  "state": ["brain.json", "brain-inbox.json"],
   "tools": [
     { "name": "brain_recall", "summary": "开工前查自己的本子：按关键词或标签召回旧规则与记事" },
     { "name": "brain_remember", "summary": "记一条流水账/事实（纯新增，不查冲突）" },
