@@ -9,15 +9,11 @@
 <body>
 <div class="app">
   <aside class="rail">
-    <div class="brand"><h1>共振</h1><p class="sub mono" id="modeBadge"></p></div>
-    <div class="rail-scroll">
-      <div class="rail-title mono">房间</div>
-      <div id="roomList"></div>
-      <div class="rail-title mono">名册</div>
-      <div id="roster"></div>
-    </div>
+    <div class="brand">共振<span class="ver">RESONANCE</span></div>
+    <div class="rooms" id="roomList"></div>
     <div class="rail-foot">
-      <label class="switch-wrap" title="关闭后本机执行整体冻结，agent 不得自答审批">
+      <button class="tool" id="notebookBtn"><span class="ico">▤</span> 本子</button>
+      <label class="sw-wrap" title="关闭后本机执行整体冻结，agent 不得自答审批">
         <span>自主执行</span><span class="d-sw" id="autonomySwitch" role="switch" aria-checked="true" tabindex="0"><i></i></span>
       </label>
     </div>
@@ -25,37 +21,59 @@
 
   <main class="chat">
     <header class="chat-head">
-      <div class="chat-head-main">
-        <h2 id="roomName">…</h2>
-        <p class="sub" id="roomSub"></p>
-      </div>
-      <div class="chat-head-side">
-        <button class="btn" id="notebookBtn">本子</button>
-        <div class="members mono" id="roomMembers"></div>
+      <div class="title"><h2 id="roomName">…</h2><p id="roomSub"></p></div>
+      <div class="head-right">
+        <span class="members mono" id="roomMembers"></span>
+        <span class="mode-badge" id="modeBadge"></span>
       </div>
     </header>
 
-    <div class="banner-zone" id="offlineBanner"></div>
-    <div class="banner-zone" id="bannerZone"></div>
+    <div id="offlineBanner"></div>
+    <div class="pending-zone" id="bannerZone"></div>
 
     <div class="stream" id="stream"><div class="empty">连接中…</div></div>
 
-    <div class="typing-row" id="typing" hidden>
-      <span class="d-typing"><i></i><i></i><i></i></span>
-      <span class="mono muted" id="typingNames"></span>
+    <div class="runline" id="typing" hidden></div>
+
+    <div class="quoteline" id="quoteline" hidden>
+      <span class="q-tag mono">追问</span><span class="q-text" id="quoteText"></span>
+      <button class="q-x" id="quoteX">✕</button>
     </div>
 
-    <footer class="composer">
-      <button class="pin-btn" id="rememberBtn" title="记住：这条不进聊天，直接进当前 Bot 的本子（群聊进团队本子）">记</button>
-      <textarea id="input" rows="1" placeholder="发消息，@名字 点名谁回；Enter 发送"></textarea>
-      <button class="send-btn press-depth" id="sendBtn" title="发送">➤</button>
-    </footer>
+    <div class="composer-zone">
+      <div class="mention-pop" id="mentionPop" hidden></div>
+      <div class="composer" id="composer">
+        <button class="chip" id="rememberBtn" title="记住模式：发送的内容直接入本子，不进聊天">记</button>
+        <textarea id="input" rows="1" placeholder="发消息，@ 点名谁回 · Ctrl+K 万能指令" autocomplete="off"></textarea>
+        <button class="send" id="sendBtn" title="发送">↑</button>
+      </div>
+      <div class="composer-hint mono">Enter 发送 · Shift+Enter 换行 · Ctrl+K 指令面板</div>
+    </div>
     <div class="toasts" id="toasts"></div>
   </main>
+
+  <div class="monitor" id="monitor" hidden>
+    <div class="monitor-drag" id="monitorDrag" title="拖动调宽"></div>
+    <div class="monitor-head">
+      <span class="mono">现 场</span>
+      <button class="m-x" id="monitorX" title="收起">›</button>
+    </div>
+    <div class="monitor-body" id="monitorBody"></div>
+  </div>
+  <button class="monitor-show" id="monitorShow" title="展开现场">‹ 现 场</button>
 
   <div class="sheetwrap" id="sheet" hidden>
     <div class="scrim" id="sheetScrim"></div>
     <div class="sheet" id="sheetBody"></div>
+  </div>
+
+  <div class="palette-wrap" id="palette" hidden>
+    <div class="scrim" id="paletteScrim"></div>
+    <div class="palette">
+      <div class="palette-in"><span class="p">›</span><input id="paletteInput" placeholder="输入指令或搜索房间…（@切换 · 记 入本子 · 批 审批）"></div>
+      <div class="palette-list" id="paletteList"></div>
+      <div class="palette-ft mono">↑↓ 选择 · Enter 执行 · Esc 关闭</div>
+    </div>
   </div>
 </div>
 <script src="/app.js"></script>
