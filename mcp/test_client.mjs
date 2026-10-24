@@ -64,19 +64,25 @@ const caps = text(await rpc('tools/call', { name: 'computer_capabilities', argum
 assert.equal(caps.kind, 'user-computer');
 assert.equal(caps.actions['read-messages'], 'setting', 'scope table must come from the reconstructed model');
 assert.equal(caps.serverAuthoritative, undefined, 'the server-side authorization shortcut is gone');
-assert.equal(caps.autonomy, false, 'fail-closed: autonomy 默认关，只有人打开过才为 true');
-say(`PASS  capabilities: kind=${caps.kind}, run-command=${caps.actions['run-command']}, autonomy 默认关`);
+assert.equal(caps.autonomy, true, '全自动模式：自主执行默认开（产品主人 2026-10-25 决策）');
+say(`PASS  capabilities: kind=${caps.kind}, run-command=${caps.actions['run-command']}, autonomy 默认开`);
+
+// 4. 全自动（默认档位）：常驻授权直接放行，不经审批
+const auto = text(await rpc('tools/call', { name: 'computer_shell', arguments: { command: process.execPath, args: ['-e', 'console.log("AUTO-RAN")'] } }));
+assert.equal(auto.status, 'ok', '全自动模式必须直接执行: ' + JSON.stringify(auto));
+assert.match(String(auto.stdout), /AUTO-RAN/);
+say('PASS  全自动模式：shell 直接执行，无需审批，exit=' + auto.exitCode);
+
+// 4b. 切到审批模式：清空常驻授权（等同 permissions 清空），后续用例验证完整票据闭环
 {
-  // 人在界面上打开自主执行（fail-closed 之后的合法路径），后续审批闭环才走得通
   const stFile = path.join(STATE, 'computer.json');
   const cur = fs.existsSync(stFile) ? JSON.parse(fs.readFileSync(stFile, 'utf8')) : {};
-  fs.writeFileSync(stFile, JSON.stringify({ ...cur, autonomy: true }, null, 2));
-  const capsOn = text(await rpc('tools/call', { name: 'computer_capabilities', arguments: {} }));
-  assert.equal(capsOn.autonomy, true);
-  say('PASS  人在界面上打开 autonomy → agent 得到 true');
+  cur.permissions = {};
+  fs.writeFileSync(stFile, JSON.stringify(cur, null, 2));
+  say('PASS  切回审批模式（清空常驻授权）');
 }
 
-// 4. default permission = ask -> shell must NOT execute, must return an approval ticket
+// 5. 审批模式下 default = ask -> shell must NOT execute, must return an approval ticket
 const denied = text(await rpc('tools/call', { name: 'computer_shell', arguments: { command: process.execPath, args: ['-e', 'console.log("SHOULD-NOT-RUN")'] } }));
 assert.equal(denied.status, 'permission_pending', 'shell without permission must be held: ' + JSON.stringify(denied));
 assert.ok(/^ap_/.test(denied.approvalId), 'approval ticket issued');

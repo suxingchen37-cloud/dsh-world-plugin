@@ -137,23 +137,24 @@ const rpc = (method, params) => new Promise((res, rej) => {
   mcp.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
 });
 await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'live-harness', version: '1' } });
-// fail-closed：全新账本 autonomy 默认关。模拟人在界面上打开，下面的 agent 自答闭环才走得通。
-{
-  const stFile = path.join(STATE, 'computer.json');
-  const cur = fs.existsSync(stFile) ? JSON.parse(fs.readFileSync(stFile, 'utf8')) : {};
-  fs.writeFileSync(stFile, JSON.stringify({ ...cur, autonomy: true }, null, 2));
-}
 const tools = (await rpc('tools/list', {})).tools.map(t => t.name).sort();
 assert.deepEqual(tools, ['computer_capabilities', 'computer_list_dir', 'computer_pending', 'computer_read_file', 'computer_respond', 'computer_retire_approval', 'computer_shell', 'computer_status', 'computer_write_file'], 'MCP tools/list 来自 computer 能力');
 console.log('mcp tools:', tools.join(', '));
 
-// 完整审批闭环：shell → permission_pending → respond allow-once → 带 id 重试 → 执行成功
+// 完整闭环（两档都验）：全自动直接执行 → 清空常驻授权切审批模式 → 票据 → 批准 → 执行 → 重放拒绝
 const callTool = async (name, args) => JSON.parse((await rpc('tools/call', { name, arguments: args })).content[0].text);
-const sandboxHello = path.join(STATE, 'sandbox-live.txt');
+const auto = await callTool('computer_shell', { command: process.execPath, args: ['-e', 'console.log("auto")'], cwd: STATE });
+assert.equal(auto.status, 'ok', '全自动模式：直接执行不需要审批');
+{
+  const stFile = path.join(STATE, 'computer.json');
+  const cur = JSON.parse(fs.readFileSync(stFile, 'utf8'));
+  cur.permissions = {};
+  fs.writeFileSync(stFile, JSON.stringify(cur, null, 2));
+}
 const p1 = await callTool('computer_shell', { command: process.execPath, args: ['-e', 'console.log("hi from live")'], cwd: STATE });
-assert.equal(p1.status, 'permission_pending', '默认 ask：shell 返回待审批');
+assert.equal(p1.status, 'permission_pending', '审批模式：shell 返回待审批');
 const resp = await callTool('computer_respond', { approvalId: p1.approvalId, verdict: 'allow-once' });
-assert.ok(resp.ok, '人在界面打开 autonomy 后：agent 可自答审批');
+assert.ok(resp.ok, 'autonomy 默认开：agent 可自答审批');
 const p2 = await callTool('computer_shell', { command: process.execPath, args: ['-e', 'console.log("hi from live")'], cwd: STATE, approvalId: p1.approvalId });
 assert.equal(p2.status, 'ok', '批准后执行成功');
 assert.equal(p2.exitCode, 0);

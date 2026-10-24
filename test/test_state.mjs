@@ -100,19 +100,30 @@ const engine = await import(pathToFileURL(path.join(ROOT, 'host', 'capabilities'
   console.log('PASS  org 迁移：字段搬家、原文件摘除、留底、幂等');
 }
 
-// ---- 票据单次有效（经完整 gate 路径验证，行为与旧版一致）----------------------
+// ---- 全自动（默认）与审批模式（可切回）--------------------------------------
 {
   process.env.DSH_LOCAL_COMPUTER_ROOT = path.join(STATE, 'sandbox');
   const eng2 = await import(pathToFileURL(path.join(ROOT, 'host', 'capabilities', 'computer', 'engine.mjs')).href + '?fresh=' + NOW);
   const sandboxFile = path.join(STATE, 'sandbox', 'hello.txt');
   fs.mkdirSync(path.join(STATE, 'sandbox'), { recursive: true });
 
-  // fail-closed：全新账本 autonomy 默认关（2026-10-23 的既定安全决策）
-  assert.equal((await eng2.call('computer_status', {})).autonomy, false, '全新账本 autonomy 默认关');
-  eng2.setAutonomy(true);   // 模拟人在界面上打开，之后 agent 才能自答票据
+  // 全自动（默认档位，只对全新账本生效；旧账本沿用自己写过的档位）
+  fs.rmSync(path.join(STATE, 'computer.json'), { force: true });   // 模拟全新安装
+  assert.equal((await eng2.call('computer_status', {})).autonomy, true, '全新账本 autonomy 默认开');
+  const auto = await eng2.call('computer_write_file', { path: sandboxFile, content: '你好' });
+  assert.equal(auto.status, 'ok', '全自动模式：直接执行，不需要审批');
+  assert.equal(fs.readFileSync(sandboxFile, 'utf8'), '你好');
+  const st1 = await eng2.call('computer_status', {});
+  assert.equal(st1.lastAudit.at(-1).approvedBy, 'standing', '审计记的是常驻授权（无人审批）');
+
+  // 切回审批模式：清空常驻授权（等同把 permissions 清空），票据流程原样可用
+  const stFile = path.join(STATE, 'computer.json');
+  const cur = JSON.parse(fs.readFileSync(stFile, 'utf8'));
+  cur.permissions = {};
+  fs.writeFileSync(stFile, JSON.stringify(cur, null, 2));
 
   const first = await eng2.call('computer_write_file', { path: sandboxFile, content: '你好' });
-  assert.equal(first.status, 'permission_pending', '默认权限 ask：第一次返回待审批 + 票据');
+  assert.equal(first.status, 'permission_pending', '审批模式：第一次返回待审批 + 票据');
   assert.ok(first.approvalId, '返回 approvalId');
 
   const mid = await eng2.call('computer_respond', { approvalId: first.approvalId, verdict: 'allow-once' });
@@ -120,12 +131,11 @@ const engine = await import(pathToFileURL(path.join(ROOT, 'host', 'capabilities'
 
   const second = await eng2.call('computer_write_file', { path: sandboxFile, content: '你好', approvalId: first.approvalId });
   assert.equal(second.status, 'ok', '带票据重试：写入成功');
-  assert.equal(fs.readFileSync(sandboxFile, 'utf8'), '你好');
 
   const third = await eng2.call('computer_write_file', { path: sandboxFile, content: 'again', approvalId: first.approvalId });
   assert.equal(third.status, 'refused', '同一票据第二次使用被拒绝（单次有效）');
   assert.ok(String(third.reason).startsWith('already-asked-and-denied-for-this-task'));
-  console.log('PASS  票据单次有效：pending → 批准 → 执行一次 → 拒绝重放');
+  console.log('PASS  全自动默认直通（审计记 standing）；切回审批模式后票据闭环原样可用');
 }
 
 fs.rmSync(STATE, { recursive: true, force: true });

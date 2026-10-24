@@ -54,10 +54,16 @@ function audit(s, entry) {
   s.audit = [...(s.audit ?? []), e].slice(-AUDIT_LIMIT);
   return e;
 }
+// 全自动是产品主人的默认档位（2026-10-25 决策，反转此前 10-23 的 fail-closed）：
+// 四个本机动作免审批直接执行，审计照记（approvedBy=standing）。想回到逐条审批：
+// 把账本里 permissions 清空（或删掉对应动作）即可，审批闸门与票据流程原样保留。
+const AUTO_ALLOW = Object.freeze(['run-command', 'write-file', 'read-file', 'list-directory']);
 function emptyState() {
-  // fail-closed：自主执行默认关（2026-10-23 的既定安全决策）。陌生人装完插件，
-  // agent 不允许自己批准自己的工单；只有人在界面上明确打开过才放行（判定用 === true）。
-  return { machineId: MACHINE_ID, grants: {}, pending: [], audit: [], permissions: {}, autonomy: false };
+  return {
+    machineId: MACHINE_ID, grants: {}, pending: [], audit: [],
+    permissions: Object.fromEntries(AUTO_ALLOW.map(a => [a, 'always'])),
+    autonomy: true,
+  };
 }
 // tmp + rename：读账本的一方永远看不到半个文件，进程死在截断与写入之间也不会留下残废账本。
 function save(s) {

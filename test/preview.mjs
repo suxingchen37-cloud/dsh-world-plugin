@@ -7,7 +7,7 @@
 //   node test/preview.mjs      → 打开它打印的 http://127.0.0.1:47941
 //
 // 会预置：两个 Bot（总理由插件自动引导创建）、各自的 1:1 私聊、公司大群、
-// 一条 Bot 提问（在聊天流里直接回答）、一张本机执行待审批票。
+// 一条 Bot 提问（在聊天流里直接回答）、一条本机执行审计（全自动档直接执行）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -211,7 +211,7 @@ const stop = apply({
 });
 await new Promise(r => setTimeout(r, 500));   // 总理引导 + 能力挂载
 
-// ---- 预置：一条笔记本规则 + 一张本机执行待审批票 -----------------------------
+// ---- 预置：一条笔记本规则 + 一条本机执行审计（全自动档直接执行，横幅通常为空）--
 const brain = registered.find(t => t.name === 'brain_remember');
 if (brain) {
   await brain.execute({ text: '交付成片一律 1080p，低于这个分辨率直接打回', tags: ['交付', '分辨率'] }, { agent: { session: { id: 'ac:dm-b1:b1' } } });
@@ -219,7 +219,7 @@ if (brain) {
 const engine = await import(pathToFileURL(path.join(ROOT, 'host', 'capabilities', 'computer', 'engine.mjs')).href);
 await engine.call('computer_shell', {
   command: process.execPath, args: ['-e', 'console.log("hi from preview")'],
-  cwd: path.join(STATE, 'sandbox'),   // 必须在沙箱内，否则批准后也会被围栏拒绝
+  cwd: path.join(STATE, 'sandbox'),   // 必须在沙箱内，否则会被围栏拒绝
 });
 
 // ---- 等控制台端口就绪 --------------------------------------------------------
@@ -234,7 +234,7 @@ console.log('\n─────────────────────�
 console.log(`  共振:  http://127.0.0.1:${port}`);
 console.log('  · 公司大群/私聊里发消息，Bot 会回（' + (MODEL ? '真模型' : '演示回声') + '）');
 console.log('  · 群里 @名字 点名谁回；验收员有个问题等你答');
-console.log('  · 顶部横幅有本机执行票等你批，批准即真实执行');
+console.log('  · 顶部横幅通常为空（全自动档不需要审批）；审计在"本机执行"标签里');
 console.log('  · Ctrl+C 退出');
 console.log('──────────────────────────────────────────────────\n');
 const bye = () => { try { stop(); } catch { } process.exit(0); };
