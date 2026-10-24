@@ -91,9 +91,12 @@ await new Promise(r => setTimeout(r, 300));   // 等异步能力加载
 const names = registered.map(t => t.name).sort();
 assert.deepEqual(names, [
   'apply_new_bot', 'brain_archive', 'brain_ledger', 'brain_recall', 'brain_remember',
-  'brain_rule', 'org_appoint', 'org_control', 'org_plan', 'org_rank', 'org_roster',
-], 'org 6 + brain 5 个工具全部注册');
-console.log('host tools:', names.join(', '));
+  'brain_rule', 'computer_capabilities', 'computer_list_dir', 'computer_pending',
+  'computer_read_file', 'computer_respond', 'computer_retire_approval', 'computer_shell',
+  'computer_status', 'computer_write_file', 'org_appoint', 'org_control', 'org_plan',
+  'org_rank', 'org_roster',
+], 'org 6 + brain 5 + computer 9 个工具全部注册');
+console.log('host tools:', names.length, '个（org 6 + brain 5 + computer 9）');
 
 // brain_remember 走一遍：写进独立 brain.json，并触发总理的规则注入同步（mock 服务接得住）
 const brainTool = registered.find(t => t.name === 'brain_remember');
@@ -134,6 +137,12 @@ const rpc = (method, params) => new Promise((res, rej) => {
   mcp.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
 });
 await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'live-harness', version: '1' } });
+// fail-closed：全新账本 autonomy 默认关。模拟人在界面上打开，下面的 agent 自答闭环才走得通。
+{
+  const stFile = path.join(STATE, 'computer.json');
+  const cur = fs.existsSync(stFile) ? JSON.parse(fs.readFileSync(stFile, 'utf8')) : {};
+  fs.writeFileSync(stFile, JSON.stringify({ ...cur, autonomy: true }, null, 2));
+}
 const tools = (await rpc('tools/list', {})).tools.map(t => t.name).sort();
 assert.deepEqual(tools, ['computer_capabilities', 'computer_list_dir', 'computer_pending', 'computer_read_file', 'computer_respond', 'computer_retire_approval', 'computer_shell', 'computer_status', 'computer_write_file'], 'MCP tools/list 来自 computer 能力');
 console.log('mcp tools:', tools.join(', '));
@@ -144,7 +153,7 @@ const sandboxHello = path.join(STATE, 'sandbox-live.txt');
 const p1 = await callTool('computer_shell', { command: process.execPath, args: ['-e', 'console.log("hi from live")'], cwd: STATE });
 assert.equal(p1.status, 'permission_pending', '默认 ask：shell 返回待审批');
 const resp = await callTool('computer_respond', { approvalId: p1.approvalId, verdict: 'allow-once' });
-assert.ok(resp.ok, 'autonomy 默认开：对话内审批可用');
+assert.ok(resp.ok, '人在界面打开 autonomy 后：agent 可自答审批');
 const p2 = await callTool('computer_shell', { command: process.execPath, args: ['-e', 'console.log("hi from live")'], cwd: STATE, approvalId: p1.approvalId });
 assert.equal(p2.status, 'ok', '批准后执行成功');
 assert.equal(p2.exitCode, 0);
@@ -157,4 +166,4 @@ assert.notEqual(fence.status, 'ok', '账本文件不可读（fail-closed）');
 mcp.kill();
 stop();
 fs.rmSync(STATE, { recursive: true, force: true });
-console.log('\nlive smoke passed: host 11 tools, mcp 9 tools, 审批闭环与围栏全部符合预期');
+console.log('\nlive smoke passed: host 20 tools (org6+brain5+computer9), mcp 9 tools, 审批闭环与围栏全部符合预期');

@@ -38,34 +38,41 @@ for (const t of LINKS) {
   console.log(`\n${t}\n  name=${pkg.name} v${pkg.version}  dsh=${JSON.stringify(pkg.dsh)}\n  exports=${JSON.stringify(Object.keys(pkg.exports ?? {}))}\n  ${files}`);
 }
 
-// 3) MCP stdio block in the profile layer, with this machine's real paths.
+// 3) 本机执行的 computer_* 工具如今直接在宿主进程内注册（host 面），不再需要
+//    写死 node/server.mjs 绝对路径的 MCP 子进程块——换台机器照样能装。
+//    如果还想让外部 MCP 客户端（非 DSH）访问同一组工具，可用 --with-mcp 打开旧的
+//    stdio 块写入：
 const PATCH = path.join(PROFILE, 'cordis.patch.yml');
 const INSTALLED = path.join(PROFILE, 'node_modules', 'dsh-local-computer');
 const MCP = path.join(INSTALLED, 'mcp', 'server.mjs');
-if (!fs.existsSync(MCP)) {
-  console.log('MCP server missing at', MCP, '- skipping the MCP block');
+if (process.argv.includes('--with-mcp')) {
+  if (!fs.existsSync(MCP)) {
+    console.log('MCP server missing at', MCP, '- skipping the MCP block');
+  } else {
+    const marker = '# dsh-local-computer:本机执行 MCP';
+    const block = [
+      '',
+      marker + '（由 install.mjs 生成，路径按本机解析）',
+      '- insert:',
+      '    - id: mcp-local-computer',
+      "      name: '@deepseek-ai/dsh-mcp-client'",
+      '      config:',
+      '        serverName: local-computer',
+      '        transport: stdio',
+      `        command: '${process.execPath}'`,
+      '        args:',
+      `          - '${MCP}'`,
+      `        cwd: '${INSTALLED}'`,
+      '        failOnStartupError: false',
+      '',
+    ].join('\n');
+    let cur = '';
+    try { cur = fs.readFileSync(PATCH, 'utf8'); } catch { }
+    const at = cur.indexOf(marker);
+    if (at >= 0) cur = cur.slice(0, at).trimEnd() + '\n';
+    fs.writeFileSync(PATCH, cur + block);
+    console.log('\nMCP block written to', PATCH);
+  }
 } else {
-  const marker = '# dsh-local-computer:本机执行 MCP';
-  const block = [
-    '',
-    marker + '（由 install.mjs 生成，路径按本机解析）',
-    '- insert:',
-    '    - id: mcp-local-computer',
-    "      name: '@deepseek-ai/dsh-mcp-client'",
-    '      config:',
-    '        serverName: local-computer',
-    '        transport: stdio',
-    `        command: '${process.execPath}'`,
-    '        args:',
-    `          - '${MCP}'`,
-    `        cwd: '${INSTALLED}'`,
-    '        failOnStartupError: false',
-    '',
-  ].join('\n');
-  let cur = '';
-  try { cur = fs.readFileSync(PATCH, 'utf8'); } catch { }
-  const at = cur.indexOf(marker);
-  if (at >= 0) cur = cur.slice(0, at).trimEnd() + '\n';
-  fs.writeFileSync(PATCH, cur + block);
-  console.log('\nMCP block written to', PATCH);
+  console.log('\n跳过 MCP 子进程块（computer_* 已宿主内注册）。需要外部 MCP 客户端访问时加 --with-mcp 重跑。');
 }

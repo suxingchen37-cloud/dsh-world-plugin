@@ -257,7 +257,7 @@ export function register(rt) {
         ledger: (brain.ledger ?? []).slice(-30).reverse(),
       },
       computer: {
-        autonomy: computer.autonomy !== false,
+        autonomy: computer.autonomy === true,
         sandbox: computer.sandbox ?? null,
         permissions: computer.permissions ?? {},
         pending: (computer.pending ?? []).filter(p => !p.resolved && !p.consumed && !p.granted),

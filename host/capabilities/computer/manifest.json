@@ -3,7 +3,7 @@
   "title": "本机执行",
   "version": "1.0.0",
   "description": "把本机暴露成 agent 工具：shell（参数数组直传不经 shell）、读写文件、列目录，全部经过授权闸门（一次性票据 / 常驻授权 / fail-closed）。执行语义在 core/daemon.mjs；审批账本在本能力独占的 computer.json。",
-  "surfaces": ["mcp"],
+  "surfaces": ["host", "mcp"],
   "requires": [],
   "state": ["computer.json"],
   "tools": [

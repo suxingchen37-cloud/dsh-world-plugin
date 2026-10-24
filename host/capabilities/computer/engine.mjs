@@ -55,7 +55,9 @@ function audit(s, entry) {
   return e;
 }
 function emptyState() {
-  return { machineId: MACHINE_ID, grants: {}, pending: [], audit: [], permissions: {}, autonomy: true };
+  // fail-closed：自主执行默认关（2026-10-23 的既定安全决策）。陌生人装完插件，
+  // agent 不允许自己批准自己的工单；只有人在界面上明确打开过才放行（判定用 === true）。
+  return { machineId: MACHINE_ID, grants: {}, pending: [], audit: [], permissions: {}, autonomy: false };
 }
 // tmp + rename：读账本的一方永远看不到半个文件，进程死在截断与写入之间也不会留下残废账本。
 function save(s) {
@@ -207,9 +209,9 @@ export async function call(name, args) {
   const state = load();
   switch (name) {
     case 'computer_status':
-      return { machineId: state.machineId, autonomy: state.autonomy !== false, pending: state.pending.filter(p => !p.granted).length, granted: state.grants, permissions: state.permissions, lastAudit: state.audit.slice(-5), sandbox: path.resolve(SANDBOX) };
+      return { machineId: state.machineId, autonomy: state.autonomy === true, pending: state.pending.filter(p => !p.granted).length, granted: state.grants, permissions: state.permissions, lastAudit: state.audit.slice(-5), sandbox: path.resolve(SANDBOX) };
     case 'computer_capabilities':
-      return { machineId: state.machineId, label: state.label ?? 'dsh-local-computer', kind: 'user-computer', variant: 'plugin', supervised: false, autonomy: state.autonomy !== false, actions: ACTION_SCOPE, readRoots: READ_ROOTS, writeRoots: WRITE_ROOTS, allowedRoots: READ_ROOTS };
+      return { machineId: state.machineId, label: state.label ?? 'dsh-local-computer', kind: 'user-computer', variant: 'plugin', supervised: false, autonomy: state.autonomy === true, actions: ACTION_SCOPE, readRoots: READ_ROOTS, writeRoots: WRITE_ROOTS, allowedRoots: READ_ROOTS };
     case 'computer_list_dir': {
       const p = path.resolve(args.path);
       if (!insideRead(p)) return { error: 'outside allowed roots' };

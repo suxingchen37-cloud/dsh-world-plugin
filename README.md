@@ -54,8 +54,10 @@ node install.mjs
   （原文件留 `.pre-org-migration` 底）
 - 票据完成 7 天后自动清理，audit/账本各有 500 行上限，crash.log 有 512KB 上限
 - 审批流：`computer_*` 返回 `permission_pending + approvalId` → agent 在对话里向用户要授权 →
-  `computer_respond` 记录结论 → 带 id 重试（前端回归前这是唯一审批通道；
-  `autonomy: false` 可整体冻结，人手改回 `state/computer.json` 解冻）
+  `computer_respond` 记录结论 → 带 id 重试。**fail-closed：自主执行默认关闭**（新装即冻结，
+  agent 不能自答自己的票），在控制台页面打开后才可用；`autonomy: false` 写回账本即重新冻结
+- `computer_*` 九个工具直接在宿主进程内注册（无写死路径的 MCP 子进程块，换机可装）；
+  外部 MCP 客户端仍可用 `mcp/server.mjs`（`install.mjs --with-mcp` 写入 profile）
 
 ## 测试
 

@@ -107,6 +107,10 @@ const engine = await import(pathToFileURL(path.join(ROOT, 'host', 'capabilities'
   const sandboxFile = path.join(STATE, 'sandbox', 'hello.txt');
   fs.mkdirSync(path.join(STATE, 'sandbox'), { recursive: true });
 
+  // fail-closed：全新账本 autonomy 默认关（2026-10-23 的既定安全决策）
+  assert.equal((await eng2.call('computer_status', {})).autonomy, false, '全新账本 autonomy 默认关');
+  eng2.setAutonomy(true);   // 模拟人在界面上打开，之后 agent 才能自答票据
+
   const first = await eng2.call('computer_write_file', { path: sandboxFile, content: '你好' });
   assert.equal(first.status, 'permission_pending', '默认权限 ask：第一次返回待审批 + 票据');
   assert.ok(first.approvalId, '返回 approvalId');

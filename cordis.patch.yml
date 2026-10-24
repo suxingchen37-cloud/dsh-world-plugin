@@ -1,7 +1,9 @@
 # dsh-local-computer bundle patch
-# 只挂服务端插件。MCP stdio（把「本机执行」暴露成 agent 工具）不写在这里：
-# 它的 server 路径取决于包被装到哪里，所以由 test/install.mjs 写进 profile 自己的
-# cordis.patch.yml（按本机解析的绝对路径）。
+#
+# 只有一行：服务端插件。宿主进程内注册全部工具：
+#   1) 团队/笔记本工具（apply_new_bot、org_*、brain_*）—— 由 org/brain 能力注册
+#   2) 本机执行的九个 computer_* 工具 —— 由 computer 能力注册（不再有写死本机路径
+#      的 MCP 子进程块；外部 MCP 客户端仍可用 mcp/server.mjs，安装时加 --with-mcp）
 # 说明：不写任何模型配置 —— provider/model 一律跟随 profile 里的 agent-default-model。
 - insert:
     - id: local-computer
