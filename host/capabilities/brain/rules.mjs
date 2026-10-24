@@ -256,8 +256,11 @@ export function notesBlock(brain, botId, now = new Date().toISOString(), { maxEn
     if (used + line.length > maxChars) break;
     body += line; used += line.length;
   }
-  if (!body) return '';
-  return NOTES_MARK + NOTES_HEAD + body + '要改先用 brain_rule，别直接堆新的。';
+  // 记住的习惯：注入给每一个 Bot（哪怕它本子还空着）。这是"对话即记忆"的关键——
+  // 用户顺嘴说"记住"，Bot 自己动手立规矩、查冲突、一句话确认，不需要任何按钮。
+  const usage = '用户说「记住…」「记一下…」「以后都…」「以后别…」，或表达了想让你长期遵守的规矩/偏好时，立刻用 brain_rule 记到你自己的本子（它会先查冲突；打架了就如实告诉他和谁打架、怎么改），并用一句话确认记了什么。一次性的事用 brain_remember，别把临时的记成规矩；团队那本只有总理能写，全公司的规矩就提醒他找总理。';
+  if (!body) return NOTES_MARK + NOTES_HEAD + usage + '\n';
+  return NOTES_MARK + NOTES_HEAD + body + '\n' + usage;
 }
 
 // --- Obsidian 镜像 -----------------------------------------------------------

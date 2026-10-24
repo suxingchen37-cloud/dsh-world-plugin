@@ -130,6 +130,31 @@ export function register(rt) {
         return send(res, 200, { ok: true, outcome });
       });
     }
+    if (req.method === 'POST' && url.pathname === '/api/remember') {
+      // 用户的"记住"：私聊 → 收进该 Bot 的本子；群聊 → 收进团队那本。
+      // 实际收割逻辑在 brain 能力（rt.request 通道），这里只负责把话送对地方。
+      return void withBody(req, res, async (j) => {
+        const text = String(j.text ?? '').trim();
+        if (!j.roomId) return send(res, 400, { error: '需要 roomId' });
+        if (!text && j.action !== 'retire') return send(res, 400, { error: '要记的内容是空的' });
+        const communityRaw = readJson(COMMUNITY_FILE) ?? {};
+        const room = (communityRaw.rooms ?? []).find(r => r.id === j.roomId);
+        let scope = 'team', botId, botName = '团队';
+        if (room?.directBotId) {
+          const bot = (communityRaw.bots ?? []).find(b => b.id === room.directBotId);
+          scope = 'bot';
+          botId = room.directBotId;
+          botName = bot?.name ?? '';
+        } else {
+          botId = (await rt.request('prime-id')) ?? 'user';
+        }
+        const out = await rt.request('remember', {
+          text, scope, botId, botName,
+          action: j.action, entryId: j.entryId, reason: j.reason,
+        });
+        return send(res, 200, out ?? { ok: false, error: 'brain 能力未挂载' });
+      });
+    }
     if (req.method === 'POST' && url.pathname === '/api/respond') {
       return void withBody(req, res, (j) => {
         if (!j.approvalId || !['allow-once', 'always', 'deny'].includes(j.verdict)) {

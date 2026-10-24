@@ -322,6 +322,37 @@ export function register(rt) {
     },
   });
 
+  // ---- 用户的"记住"通道（控制台 📌，将来语音等也走这里）---------------------
+  // 与 brain_rule 同一条纪律：无冲突直接收（by:user），有冲突绝不自动覆盖，
+  // 把候选摆回去让用户改写或下线旧条。console 面经 rt.request 送话进来——
+  // 这是能力间的正规通道，不共享状态文件。
+  rt.provide('remember', async ({ text, scope = 'bot', botId, botName = '', action, entryId, reason } = {}) => {
+    try {
+      const b = readBrain();
+      if (action === 'retire') {
+        if (!entryId) return { ok: false, error: '要下线哪一条？' };
+        const e = retire(b, String(entryId), { by: 'user', reason: reason || '用户在界面上下线' });
+        if (!e) return { ok: false, error: '没找到这条，或它已下线' };
+        writeBrain(b); void syncNotes(rt.community()); mirrorBrainNow('remember');
+        return { ok: true, retired: { id: e.id, text: e.text } };
+      }
+      const t = String(text ?? '').trim();
+      if (!t) return { ok: false, error: '要记的内容是空的' };
+      if (scope === 'team' && !botId) botId = 'user';
+      const conflicts = findConflicts(b, { botId, text: t });
+      if (conflicts.length) {
+        return {
+          ok: false, needs_decision: true,
+          candidates: conflicts.map(c => ({ id: c.entry.id, text: c.entry.text, relation: c.relation, advice: c.advice, needsUser: !!c.needsUser })),
+          hint: '和旧规矩打架了，没敢自动覆盖。换个说法再记一次，或在「本子」里把旧的那条先下线。',
+        };
+      }
+      const e = noteAdd(b, { botId, botName, text: t, kind: 'rule', scope: scope === 'team' ? 'team' : 'bot', by: 'user' });
+      writeBrain(b); void syncNotes(rt.community()); mirrorBrainNow('remember');
+      return { ok: true, entry: { id: e.id, text: e.text, scope: e.scope } };
+    } catch (err) { rt.crash('remember', err); return { ok: false, error: String((err && err.message) || err) }; }
+  });
+
   // ---- 收件箱：Obsidian 双向同步的"进"方向 ----------------------------------
   // 用户在 vault 的 Bots/<bot>/收件箱.md 里一行一条写规矩，这里轮询收割：
   // 走 consumeInbox 的查冲突流程；成功的立即镜像回 规则.md，被拒的退到 收件箱-退回.md。

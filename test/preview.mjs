@@ -97,10 +97,26 @@ async function botTurn(botId, roomId, userText) {
   if (!bot) return;
   s0.runs.push({ id: runId, botId, roomId, status: 'running', startedAt: nowIso(), prompt: String(userText ?? '').slice(0, 80) });
   write(s0);
-  let reply;
-  try { reply = await llmReply(bot, roomId, userText); }
-  catch (e) { console.log('[model] 真模型失败，降级回声:', String(e.message || e)); reply = null; }
-  if (reply == null) reply = echoReply(bot, roomId, userText);
+  // 真实产品里，Bot 看到「记住」会自己调 brain_rule 立规矩（notesBlock 注入的习惯）。
+  // 预览执行器替它走同一条路：同样查冲突、同样一句话确认——不是什么特殊按钮。
+  const mRemember = /^(?:记住|记一下|以后都|以后别)[：:，,]?\s*(.+)$/.exec(String(userText ?? '').trim());
+  const ruleTool = registered.find(t => t.name === 'brain_rule');
+  let reply = null;
+  if (mRemember && ruleTool) {
+    const out = await ruleTool.execute({ text: mRemember[1] }, { agent: { session: { id: 'ac:' + roomId + ':' + botId } } });
+    if (out.ok) {
+      reply = `记下了：「${out.entry.text}」——进了我的本子，以后都按这个来。`;
+    } else if (out.needs_decision) {
+      const c = (out.candidates ?? [])[0];
+      reply = `这条没记成：和本子里的「${String(c?.text ?? '').slice(0, 30)}」打架了（${c?.relation ?? ''}）。${c?.advice ?? ''}换个说法再说一遍，或者让我先把旧的那条下线。`;
+    } else {
+      reply = `没记成：${out.error ?? '未知原因'}`;
+    }
+  } else {
+    try { reply = await llmReply(bot, roomId, userText); }
+    catch (e) { console.log('[model] 真模型失败，降级回声:', String(e.message || e)); reply = null; }
+    if (reply == null) reply = echoReply(bot, roomId, userText);
+  }
   const s1 = read();
   s1.messages.push({
     id: 'm-' + Date.now() + '-' + botId, roomId,
