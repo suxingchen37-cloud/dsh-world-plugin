@@ -9,16 +9,16 @@
 <body>
 <div class="app">
   <aside class="rail">
-    <div class="brand"><span class="logo">◆</span><div><h1>共振</h1><p class="sub" id="modeBadge"></p></div></div>
+    <div class="brand"><h1>共振</h1><p class="sub mono" id="modeBadge"></p></div>
     <div class="rail-scroll">
-      <div class="rail-title">房间</div>
+      <div class="rail-title mono">房间</div>
       <div id="roomList"></div>
-      <div class="rail-title">Bot 名册</div>
+      <div class="rail-title mono">名册</div>
       <div id="roster"></div>
     </div>
     <div class="rail-foot">
       <label class="switch-wrap" title="关闭后本机执行整体冻结，agent 不得自答审批">
-        <span>自主执行</span><span class="switch" id="autonomySwitch" role="switch" tabindex="0"></span>
+        <span>自主执行</span><span class="d-sw" id="autonomySwitch" role="switch" aria-checked="true" tabindex="0"><i></i></span>
       </label>
     </div>
   </aside>
@@ -29,20 +29,34 @@
         <h2 id="roomName">…</h2>
         <p class="sub" id="roomSub"></p>
       </div>
-      <div class="chat-head-side" id="roomMembers"></div>
+      <div class="chat-head-side">
+        <button class="btn" id="notebookBtn">本子</button>
+        <div class="members mono" id="roomMembers"></div>
+      </div>
     </header>
 
+    <div class="banner-zone" id="offlineBanner"></div>
     <div class="banner-zone" id="bannerZone"></div>
 
     <div class="stream" id="stream"><div class="empty">连接中…</div></div>
 
-    <div class="typing" id="typing" hidden></div>
+    <div class="typing-row" id="typing" hidden>
+      <span class="d-typing"><i></i><i></i><i></i></span>
+      <span class="mono muted" id="typingNames"></span>
+    </div>
 
     <footer class="composer">
-      <textarea id="input" rows="1" placeholder="发消息给这里的 Bot，@名字 可以点名谁回（Enter 发送，Shift+Enter 换行）"></textarea>
-      <button class="send-btn" id="sendBtn" title="发送">➤</button>
+      <button class="pin-btn" id="rememberBtn" title="记住：这条不进聊天，直接进当前 Bot 的本子（群聊进团队本子）">记</button>
+      <textarea id="input" rows="1" placeholder="发消息，@名字 点名谁回；Enter 发送"></textarea>
+      <button class="send-btn press-depth" id="sendBtn" title="发送">➤</button>
     </footer>
+    <div class="toasts" id="toasts"></div>
   </main>
+
+  <div class="sheetwrap" id="sheet" hidden>
+    <div class="scrim" id="sheetScrim"></div>
+    <div class="sheet" id="sheetBody"></div>
+  </div>
 </div>
 <script src="/app.js"></script>
 </body>
