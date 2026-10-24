@@ -4,3 +4,4 @@ state/
 client-config.json
 .dsh-project-memory/
 *.log
+host/capabilities/console/web/.port
