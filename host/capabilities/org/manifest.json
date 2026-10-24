@@ -1,0 +1,18 @@
+{
+  "name": "org",
+  "title": "组织",
+  "version": "1.0.0",
+  "description": "总理、公司大群与等级制：只有总理能新建 Bot；名册查询、任命定级、目标拆解、运行控制。等级从高到低：总理 > 管方向 > 小官 > 组长。",
+  "surfaces": ["host"],
+  "requires": ["agentCommunity"],
+  "state": ["org.json"],
+  "migrates": ["computer.json"],
+  "tools": [
+    { "name": "apply_new_bot", "summary": "Bot 向总理提交增员申请，发到公司大群并 @总理" },
+    { "name": "org_rank", "summary": "查自己的名字、等级和公司大群" },
+    { "name": "org_roster", "summary": "查全公司名册：每个 Bot 的等级与负责范围" },
+    { "name": "org_appoint", "summary": "总理任命：给 Bot 定等级与负责范围，公告并记账" },
+    { "name": "org_plan", "summary": "管方向/总理：设房间目标、拆任务卡并派活" },
+    { "name": "org_control", "summary": "管方向/总理：steer/cancel/interrupt/retry 一个运行" }
+  ]
+}

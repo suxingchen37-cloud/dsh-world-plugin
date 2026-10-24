@@ -1,0 +1,4 @@
+PASS  all 11 sections render together without throwing or leaking undefined
+PASS  WorldPage renders in machine / newbot / newroom modes with a full snapshot
+
+4 full-render checks passed

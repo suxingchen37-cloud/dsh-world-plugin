@@ -3,10 +3,16 @@
 // deleted, and every change leaving a line in the ledger.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import {
   add, recall, findConflicts, retire, integrate, live, expired, ledgerFor,
   rulesDoc, archiveDoc, ledgerDoc, loadBrain, saveBrain, emptyBrain,
-} from '../core/brain.mjs';
+} from '../host/capabilities/brain/rules.mjs';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const R = (p) => path.join(ROOT, p);
 
 const say = t => console.log(t);
 const BOT = { id: 'b1', name: '私人秘书' };
@@ -129,14 +135,14 @@ const NOW = '2026-10-22T09:00:00.000Z';
 
 // 8. the file itself survives a reload, and a corrupt one does not take the plugin down
 {
-  const file = 'D:/111/dsh-local-computer/state/brain-test/brain.json';
+  const file = R('state/brain-test/brain.json');
   const b = emptyBrain();
   add(b, { botId: BOT.id, text: '要留下的那条', kind: 'rule' });
   saveBrain(file, b);
   assert.equal(loadBrain(file).entries.length, 1, '存进去读得回来');
   fs.writeFileSync(file, '{ this is not json');
   assert.deepEqual(loadBrain(file), emptyBrain(), '坏文件回落到空，不抛');
-  fs.rmSync('D:/111/dsh-local-computer/state/brain-test', { recursive: true, force: true });
+  fs.rmSync(R('state/brain-test'), { recursive: true, force: true });
   say('PASS  persistence: reload keeps entries, a broken file degrades to empty instead of throwing');
 }
 

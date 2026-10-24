@@ -5,16 +5,25 @@ import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const React = (await import('react')).default ?? await import('react');
+import path from 'node:path';
+import os from 'node:os';
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const R = (p) => path.join(ROOT, p);
 globalThis.__DSH_REACT__ = React;
 globalThis.window = {};
 Object.defineProperty(globalThis, 'navigator', { value: { language: 'zh-CN' }, configurable: true });
 globalThis.document = { head: { appendChild() { } }, getElementById: () => null, createElement: () => ({ id: '', textContent: '', setAttribute() { } }) };
 
-(0, eval)(fs.readFileSync('D:/111/dsh-local-computer/lib/client.js','utf8'));
+(0, eval)(fs.readFileSync(R('lib/client.js'),'utf8'));
 const { Transcript, RunList, BotDetail, MentionText, normalizeCommunity } = globalThis.__DSH_LOCAL_COMPUTER__ ?? globalThis.window?.__DSH_LOCAL_COMPUTER__;
 const { renderToStaticMarkup: rtm } = await import('react-dom/server');
 
-const COMMUNITY = 'C:/Users/EDY/.dsh/agent-community/state.json';
+const COMMUNITY = process.env.DSH_AGENT_COMMUNITY_STATE || path.join(os.homedir(), '.dsh', 'agent-community', 'state.json');
+if (!fs.existsSync(COMMUNITY)) {
+  console.log('SKIP  agent-community state not found at ' + COMMUNITY);
+  process.exit(0);
+}
 const raw = JSON.parse(fs.readFileSync(COMMUNITY, 'utf8'));
 const bots = raw.bots.map(b => ({
   id: b.id, name: b.name, avatar: b.avatar?.seed ?? '', model: b.model, reasoningEffort: b.reasoningEffort,
@@ -64,7 +73,7 @@ assert.ok(/<code[^>]*>npm run build<\/code>/.test(md), 'inline code renders as <
 assert.ok(/<ul><li/.test(md), 'a bullet list becomes a real list');
 assert.ok(/wc-mention/.test(md) && md.includes('@甲'), 'mentions still chip inside markdown');
 assert.ok(!md.includes('**'), 'no bold markers leak into the transcript');
-const CLIENT_SRC = fs.readFileSync('D:/111/dsh-local-computer/lib/client.js', 'utf8');
+const CLIENT_SRC = fs.readFileSync(R('lib/client.js'), 'utf8');
 assert.ok(!/innerHTML|dangerouslySetInnerHTML/.test(CLIENT_SRC), 'markdown renders as React nodes, never as raw HTML');
 console.log('PASS  markdown: bold/code/list/mention render, markers never leak, no innerHTML anywhere');
 say('PASS  mentions: @name renders as a chip, non-mention text is untouched');
@@ -235,7 +244,7 @@ console.log('PASS  bot delete: offered, but not pre-armed');
 // 18. the community action must never be shadowed by the approval handler again. It was: `doAct`
 // called a local `act`, so clear/delete/run-control resolved to the approval function, hit the
 // "trusted gesture" guard and returned without doing anything.
-const src = fs.readFileSync('D:/111/dsh-local-computer/lib/client.js', 'utf8');
+const src = fs.readFileSync(R('lib/client.js'), 'utf8');
 assert.ok(/async function communityAct\(kind, payload\)/.test(src), 'the community action is its own function');
 assert.ok(/await communityAct\(altKind \?\? kind, payload\)/.test(src), 'doAct calls the community action');
 assert.ok(/onVerdict: respond/.test(src), 'the approval handler is wired as respond');
@@ -257,7 +266,7 @@ assert.ok(/answerBotQuestion/.test(src), 'options/answers go through answerBotQu
 console.log('PASS  question card: text + option buttons + free text + skip');
 
 // 20. every action the page can send must exist in the host allowlist; a drift here is a dead button.
-const hostSrc = fs.readFileSync('D:/111/dsh-local-computer/lib/index.js', 'utf8');
+const hostSrc = fs.readFileSync(R('lib/index.js'), 'utf8');
 const methodsBlock = hostSrc.match(/const METHODS = \{([\s\S]*?)\n\s*\};/);
 assert.ok(methodsBlock, 'host exposes the action allowlist');
 const allowed = new Set([...methodsBlock[1].matchAll(/(\w+):\s*'/g)].map(m => m[1]));

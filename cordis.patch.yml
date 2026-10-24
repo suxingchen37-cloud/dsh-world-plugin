@@ -1,21 +1,8 @@
 # dsh-local-computer bundle patch
-# 两行挂载：
-#   1) 服务端插件（审批队列 + 本机注册状态，供全新 UI 读取）
-#   2) MCP stdio 服务器：把「本机执行」能力暴露成 agent 工具（与 dsh-blender-mcp 同一姿势）
-# 说明：不写任何模型配置 —— provider/model 一律跟随 profile 里的 agent-default-model
-#       （当前为 deepseek-account / deepseek-flash），所以本插件天生全用 DeepSeek。
+# 只挂服务端插件。MCP stdio（把「本机执行」暴露成 agent 工具）不写在这里：
+# 它的 server 路径取决于包被装到哪里，所以由 test/install.mjs 写进 profile 自己的
+# cordis.patch.yml（按本机解析的绝对路径）。
+# 说明：不写任何模型配置 —— provider/model 一律跟随 profile 里的 agent-default-model。
 - insert:
     - id: local-computer
       name: dsh-local-computer
-- insert:
-    - id: mcp-local-computer
-      name: '@deepseek-ai/dsh-mcp-client'
-      config:
-        serverName: local-computer
-        transport: stdio
-        command: 'C:\Program Files\nodejs\node.exe'
-        args:
-          - 'D:\111\dsh-local-computer\mcp\server.mjs'
-        cwd: 'D:\111\dsh-local-computer'
-        # never let a failed stdio child take the whole profile down with it
-        failOnStartupError: false

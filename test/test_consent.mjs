@@ -9,8 +9,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createDaemon } from '../core/daemon.mjs';
-
-const TMP = path.join('D:/111/dsh-local-computer/state', 'consent-test');
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const R = (p) => path.join(ROOT, p);
+const TMP = path.join(R('state'), 'consent-test');
 fs.rmSync(TMP, { recursive: true, force: true });
 fs.mkdirSync(TMP, { recursive: true });
 const marker = tag => path.join(TMP, tag);

@@ -1,0 +1,10 @@
+{
+  "name": "console",
+  "title": "控制台",
+  "version": "0.1.0",
+  "description": "本机网页控制台：能力总览（manifest 名片）、组织名册、笔记本、本机执行审批与审计、诊断。loopback HTTP（默认 47941）。对兄弟能力的状态只读，写操作只走其公开接口——facade 例外见 docs/CAPABILITY-SPEC.md。",
+  "surfaces": ["host"],
+  "requires": [],
+  "state": ["console.json"],
+  "tools": []
+}

@@ -1,0 +1,12 @@
+{
+  "name": "my-capability",
+  "title": "模板能力",
+  "version": "0.1.0",
+  "description": "把这里换成一句话说明这个能力做什么、给谁用。复制本目录后：改这份 manifest（name 用目录名、写清 tools）、把 index.js 的示例工具换成你的。规范见 docs/CAPABILITY-SPEC.md。",
+  "surfaces": ["host"],
+  "requires": [],
+  "state": ["<name>.json"],
+  "tools": [
+    { "name": "example_hello", "summary": "示例工具：返回一句问候，演示工具怎么注册" }
+  ]
+}

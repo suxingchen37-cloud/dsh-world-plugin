@@ -5,6 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const R = (p) => path.join(ROOT, p);
 globalThis.window = { __LOCAL_COMPUTER__: { url: 'http://127.0.0.1:59001', token: 'fixture-only' } };
 Object.defineProperty(globalThis, 'navigator', { value: { language: 'zh-CN' }, configurable: true });
 const headEl = { appendChild() { } };
@@ -13,7 +17,7 @@ globalThis.document = {
   createElement: () => ({ id: '', textContent: '', setAttribute() { } }),
 };
 
-const CLIENT = path.resolve('D:/111/dsh-local-computer/lib/client.js');
+const CLIENT = path.resolve(R('lib/client.js'));
 const React = (await import('react')).default ?? await import('react');
 globalThis.__DSH_REACT__ = React;
 (0, eval)(fs.readFileSync(CLIENT, 'utf8'));
@@ -94,7 +98,7 @@ for (const [file, el] of Object.entries(views)) {
   <div id="titlebar"><span class="dot"></span><span>DeepSeek Harness — desktop</span></div>
   <div id="body">${nav}${stage}</div>
 </div></body></html>`;
-  const out = path.join('D:/111/dsh-local-computer/test', file);
+  const out = path.join(R('test'), file);
   fs.writeFileSync(out, html);
   console.log('wrote', out, html.length, 'bytes');
 }

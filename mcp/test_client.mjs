@@ -4,8 +4,9 @@ import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve('D:/111/dsh-local-computer');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STATE = path.join(ROOT, 'state', 'test-run');
 fs.rmSync(STATE, { recursive: true, force: true });
 const SANDBOX = path.join(STATE, 'workspace');

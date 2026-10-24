@@ -3,8 +3,10 @@
 // script. This test fails if that ever comes back.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = 'D:/111/dsh-local-computer';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = fs.readFileSync(ROOT + '/lib/client.js', 'utf8');
 const React = (await import('react')).default ?? await import('react');
 

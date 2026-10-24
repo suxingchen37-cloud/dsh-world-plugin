@@ -1,0 +1,20 @@
+{
+  "name": "computer",
+  "title": "本机执行",
+  "version": "1.0.0",
+  "description": "把本机暴露成 agent 工具：shell（参数数组直传不经 shell）、读写文件、列目录，全部经过授权闸门（一次性票据 / 常驻授权 / fail-closed）。执行语义在 core/daemon.mjs；审批账本在本能力独占的 computer.json。",
+  "surfaces": ["mcp"],
+  "requires": [],
+  "state": ["computer.json"],
+  "tools": [
+    { "name": "computer_status", "summary": "查看本机执行器状态：机器 id、待审批数、权限、最近审计" },
+    { "name": "computer_capabilities", "summary": "声明本机能做什么与每个动作的作用域" },
+    { "name": "computer_shell", "summary": "执行一条命令（受授权闸门约束，可能返回 permission_pending）" },
+    { "name": "computer_read_file", "summary": "读工作区内的文件（2MB 截断）" },
+    { "name": "computer_write_file", "summary": "写工作区内的文件（原子写）" },
+    { "name": "computer_list_dir", "summary": "列工作区目录" },
+    { "name": "computer_pending", "summary": "列出待审批的请求" },
+    { "name": "computer_respond", "summary": "对某个 approvalId 表态：allow-once / always / deny" },
+    { "name": "computer_retire_approval", "summary": "撤销一个已发放的审批票据" }
+  ]
+}

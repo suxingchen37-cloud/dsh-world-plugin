@@ -1,41 +1,29 @@
 {
   "name": "dsh-local-computer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "把 Grok Bot 的「本机执行 + bot 群」能力搬进 DeepSeek Harness：一个全新的「共振」页面，配一组本机执行工具与授权闸门；模型完全沿用 profile 的 DeepSeek 配置。",
-  "main": "./lib/index.js",
+  "description": "DeepSeek Harness 的能力化后端：组织（总理/公司大群/等级制）、笔记本记忆、本机执行与授权闸门。能力以目录为单位注册，加/删能力见 docs/CAPABILITY-SPEC.md。",
+  "main": "./host/index.js",
   "exports": {
-    ".": "./lib/index.js",
-    "./client": "./lib/client.js",
+    ".": "./host/index.js",
     "./mcp": "./mcp/server.mjs",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
-    "lib/index.js",
-    "lib/client.js",
+    "host/",
     "core/daemon.mjs",
-    "core/permission_gate.mjs",
     "mcp/server.mjs",
+    "docs/",
     "cordis.patch.yml",
-    "locale/*.json",
-    "icon.svg",
-    "core/obsidian.mjs"
+    "locale/",
+    "icon.svg"
   ],
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
-    },
-    "client": {
-      "platform": "web",
-      "immediately": true,
-      "inject": [
-        "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-api-remotes"
-      ]
     }
   },
   "engines": {

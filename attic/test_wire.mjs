@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-const STATE = path.join('D:/111/dsh-local-computer/state', 'wire-' + process.pid);
+const STATE = path.join(os.tmpdir(), 'wc-wire-' + process.pid);
 fs.mkdirSync(STATE, { recursive: true });
 process.env.DSH_LOCAL_COMPUTER_STATE = STATE;
 // a community fixture: one live group proposal on the room, one expired; only the live one may

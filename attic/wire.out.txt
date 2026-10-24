@@ -1,0 +1,21 @@
+PASS  probe: http://127.0.0.1:48934/health -> 200 (this is how the renderer finds the host)
+PASS  live state: room proposals + in-memory approvals/questions surface, resolved ones drop out
+PASS  page wiring: unread cursor, room goal via roomGoal(), deliverables/runId/duration, full args + risk, positional approve
+PASS  /diag: reads the community service without mutating anything
+PASS  prime policy: undeletable; non-prime spawn refused; prime spawns in groups and application DMs
+PASS  company group: created with all bots led by the prime; apply_new_bot posts @总理 there
+PASS  ranks = permissions: only 总理/管方向 plan and control; 小官/组长 denied; roster + domain + fresh-hire default persist
+PASS  org_appoint: prime only, prime untouchable, no rank above boss, announced + logged + roster updated
+PASS  mount reads: /snapshot + /community + /browse all answer the app origin with no token
+PASS  writes: no nonce 403, forged nonce 403
+PASS  authorized write: reaches the handler once, then the nonce is spent
+PASS  /autonomy: no nonce 403, bad type 400, off->snapshot false+audited, on again
+PASS  foreign page: 401 on data, no CORS header even on /health
+PASS  /act sendMessage: a circular service result is dropped, 200 returned, host still alive
+PASS  new bot: /defaults reports the profile model and createBot inherits provider/model/effort
+PASS  failures are contained: sync throw 422, rejection 422, throwing route 500, host alive, crash.log written
+PASS  cross-bot clash: written to 公司大群 @总理 and the prime is woken on its stable session
+PASS  notebook: conflict before write, retire-not-delete, ledger, team gate, prompt injection, nonce-gated user writes
+PASS  service absence: /act answers 503 with the reason, host still alive
+
+19 wire checks passed (the seam between the two halves)

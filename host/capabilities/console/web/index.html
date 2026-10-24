@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>共振</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><span class="logo">◆</span><div><h1>共振</h1><p class="sub" id="modeBadge"></p></div></div>
+    <div class="rail-scroll">
+      <div class="rail-title">房间</div>
+      <div id="roomList"></div>
+      <div class="rail-title">Bot 名册</div>
+      <div id="roster"></div>
+    </div>
+    <div class="rail-foot">
+      <label class="switch-wrap" title="关闭后本机执行整体冻结，agent 不得自答审批">
+        <span>自主执行</span><span class="switch" id="autonomySwitch" role="switch" tabindex="0"></span>
+      </label>
+    </div>
+  </aside>
+
+  <main class="chat">
+    <header class="chat-head">
+      <div class="chat-head-main">
+        <h2 id="roomName">…</h2>
+        <p class="sub" id="roomSub"></p>
+      </div>
+      <div class="chat-head-side" id="roomMembers"></div>
+    </header>
+
+    <div class="banner-zone" id="bannerZone"></div>
+
+    <div class="stream" id="stream"><div class="empty">连接中…</div></div>
+
+    <div class="typing" id="typing" hidden></div>
+
+    <footer class="composer">
+      <textarea id="input" rows="1" placeholder="发消息给这里的 Bot，@名字 可以点名谁回（Enter 发送，Shift+Enter 换行）"></textarea>
+      <button class="send-btn" id="sendBtn" title="发送">➤</button>
+    </footer>
+  </main>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

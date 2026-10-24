@@ -4,11 +4,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { planWrites, diffPlan, applyPlan, botDir } from '../core/obsidian.mjs';
+import { planWrites, diffPlan, applyPlan, botDir } from '../host/capabilities/brain/rules.mjs';
 
 const say = t => console.log(t);
 const VAULT = fs.mkdtempSync(path.join(os.tmpdir(), 'wc-vault-'));   // a scratch vault, never his
-const STATE = 'C:/Users/EDY/.dsh/agent-community/state.json';
+const STATE = process.env.DSH_AGENT_COMMUNITY_STATE
+  || path.join(os.homedir(), '.dsh', 'agent-community', 'state.json');
+if (!fs.existsSync(STATE)) {
+  console.log('SKIP  agent-community state not found at ' + STATE);
+  process.exit(0);
+}
 const raw = JSON.parse(fs.readFileSync(STATE, 'utf8'));
 
 // the same projection the host endpoint builds

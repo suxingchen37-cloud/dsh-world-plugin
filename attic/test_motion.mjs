@@ -3,7 +3,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-for (const f of ['D:/111/dsh-local-computer/lib/client.js']) {
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const R = (p) => path.join(ROOT, p);
+for (const f of [R('lib/client.js')]) {
   const src = fs.readFileSync(f, 'utf8');
   const css = /const CSS = `([\s\S]*?)`;/.exec(src)?.[1] ?? '';
   assert.ok(css.length > 10000, 'the stylesheet is embedded in the bundle');

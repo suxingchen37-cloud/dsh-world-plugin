@@ -5,11 +5,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const React = (await import('react')).default ?? await import('react');
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const R = (p) => path.join(ROOT, p);
 globalThis.__DSH_REACT__ = React;
 globalThis.window = {};
 Object.defineProperty(globalThis, 'navigator', { value: { language: 'zh-CN' }, configurable: true });
 globalThis.document = { head: { appendChild() { } }, getElementById: () => null, createElement: () => ({ id: '', textContent: '', setAttribute() { } }) };
-(0, eval)(fs.readFileSync('D:/111/dsh-local-computer/lib/client.js', 'utf8'));
+(0, eval)(fs.readFileSync(R('lib/client.js'), 'utf8'));
 const API = globalThis.__DSH_LOCAL_COMPUTER__ ?? globalThis.window.__DSH_LOCAL_COMPUTER__;
 const rtm = (await import('react-dom/server')).renderToStaticMarkup;
 const say = t => console.log(t);

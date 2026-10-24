@@ -7,7 +7,8 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 
-const ROOT = path.resolve('D:/111/dsh-local-computer');
+import { fileURLToPath as _fu } from 'node:url';
+const ROOT = path.resolve(path.dirname(_fu(import.meta.url)), '..');
 const STATE = path.join(ROOT, 'state', 'ui-test');
 fs.rmSync(STATE, { recursive: true, force: true });
 fs.mkdirSync(STATE, { recursive: true });
