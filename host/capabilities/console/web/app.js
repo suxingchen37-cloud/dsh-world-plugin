@@ -58,7 +58,7 @@ function renderRooms() {
   nb.innerHTML = `<span class="n">${n}</span><b>有 ${n} 件事等你</b><span class="arr">→</span>`;
   nb.onclick = () => {
     const q = P.community.questions[0];
-    if (q?.roomId) { activeRoom = q.roomId; render(); return; }
+    if (q?.roomId) { window.__switchRoom(q.roomId); return; }
     toast('都在当前房间，往下看');
   };
 
@@ -80,10 +80,15 @@ function renderRooms() {
     <div class="sec"><i>群聊</i> ${String(groups.length).padStart(2, '0')}</div>
     ${groups.map(item).join('')}
     ${dms.length ? `<div class="sec"><i>私聊</i> ${String(dms.length).padStart(2, '0')}</div>${dms.map(item).join('')}` : ''}`;
-  document.querySelectorAll('.r[data-room]').forEach(el => el.onclick = () => {
-    activeRoom = el.dataset.room; sessionCards.length = 0; localPending.length = 0;
-    forceBottom = true; lastStreamSig = ''; render();
-  });
+  function switchRoom(id) {
+    activeRoom = id; sessionCards.length = 0; localPending.length = 0;
+    forceBottom = true; lastStreamSig = '';
+    document.querySelector('#quoteline').hidden = true;   // 引用条属于旧房间，切换即清
+    render();
+  }
+  document.querySelectorAll('.r[data-room]').forEach(el => el.onclick = () => switchRoom(el.dataset.room));
+  // 指令面板/需要你盒子等也走同一出口（暴露给其他调用方）
+  window.__switchRoom = switchRoom;
 }
 
 // ---- 头部 ----
@@ -335,7 +340,7 @@ function buildPalette(q) {
     ...P.community.rooms.map(r => ({
       ico: r.isGroup ? '群' : (P.community.bots.find(b => b.id === r.directBotId)?.name?.[0] ?? '●'),
       c: `去 ${r.name}`, s: r.isGroup ? '群聊' : '私聊',
-      run: () => { activeRoom = r.id; sessionCards.length = 0; localPending.length = 0; render(); },
+      run: () => { window.__switchRoom(r.id); },
     })),
     { ico: '记', c: '记住一条规矩（当前房间）', s: '直接入本子 · 走查冲突', run: () => { rememberMode = true; $('#rememberBtn').classList.add('on'); input.placeholder = '记住模式：写一条规矩，回车收进本子（Esc 退出）'; input.focus(); } },
     { ico: '本', c: '打开本子', s: '现行规则与账本', run: () => openSheet() },
