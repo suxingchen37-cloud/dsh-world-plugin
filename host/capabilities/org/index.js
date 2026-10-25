@@ -23,6 +23,7 @@ const PRIME_PROMPT = `你是这个团队的「总理」，所有 Bot 的管理�
 6. 定级归你：用 org_appoint(bot, rank, domain, reason) 任命或调整某个 Bot，任命会自动在公司大群公告并记进团队账本。你自己不能被改级；觉得某人该升职或降级就直说，别绕。
 7. 不要删除其他 Bot，除非用户明确要求，并且先确认它没有正在进行的任务。
 8. 你拥有全部权限：可以用 org_plan 设目标、拆任务、派活，用 org_control 取消/转向/重试运行；其他 Bot 的等级限制不适用于你。
+8b. 建 Bot 只有一种方式：spawn_bot（总理专用章）。收到增员申请并批准后，用 spawn_bot 正式建人。不要用 spawn_teammate / team_* 官方工具建人——那是主会话的体系，在本房间会被拒绝。
 9. 回复简洁、结论先行；不替用户做未经确认的高风险决定。`;
 
 const RANK_NAME = { boss: '总理', direction: '管方向', officer: '小官', execution: '组长' };
@@ -67,6 +68,16 @@ export function register(rt) {
   // 一次性授权：只有总理的 spawn 和（将来）前端以授权上下文发起的创建能通过 createBot。
   const createAuth = new AsyncLocalStorage();
   const rawCreate = new WeakMap();
+  // 真身 createBot 的存放点。WeakMap 只认同一个对象，而 cordis 服务代理在不同调用点
+  // 可能给出不同包装：补丁拿到的 svc 与 ensurePrime 拿到的 svc 不是同一个对象时，
+  // rawCreate.get() 取不到真身，就会退回去调用被守卫包住的 createBot（总理因此永远建
+  // 不出来）。真身同时写到服务上的 Symbol，任何包装都能取回。
+  const RAW_CREATE = Symbol.for('dsh-local-computer.org.rawCreateBot');
+  const trueCreate = (svc) => {
+    try { if (typeof svc[RAW_CREATE] === 'function') return svc[RAW_CREATE]; } catch { }
+    const viaMap = rawCreate.get(svc);
+    return typeof viaMap === 'function' ? viaMap : null;
+  };
 
   const primeIdOf = () => { try { return readOrg().primeBotId ?? null; } catch { return null; } };
   // 拒绝话术本身是指引：调用方必须能拿着它行动（dm_bot 的目标/文本就这两个字段）。
@@ -76,9 +87,15 @@ export function register(rt) {
     + (pid ? `总理 id: ${pid.slice(0, 8)}。` : '') + '总理批准后会创建并把新 Bot 拉进公司大群。';
 
   rt.communityPatch((svc) => {
-    if (typeof svc.createBot === 'function' && !rawCreate.has(svc)) {
-      const orig = svc.createBot.bind(svc);
-      rawCreate.set(svc, orig);
+    if (typeof svc.createBot === 'function') {
+      // 重复应用（插件重载）时沿用第一次捕获的真身，只把守卫换成当前实例的——
+      // 守卫里读的 createAuth 因此永远是活着的那个实例。
+      let orig = trueCreate(svc);
+      if (!orig) {
+        orig = svc.createBot.bind(svc);
+        rawCreate.set(svc, orig);
+        try { svc[RAW_CREATE] = orig; } catch { }
+      }
       svc.createBot = async (input) => {
         if (!createAuth.getStore()) throw new Error(askPrimeMsg(primeIdOf()));
         const created = await orig(input);
@@ -99,7 +116,9 @@ export function register(rt) {
         if (input.collaborate !== true && /leader|群.*交接|只有本群/.test(String(res.error || ''))) {
           try {
             const prime = (svc.listBots?.() ?? []).find(b => b.id === pid);
-            const created = await rawCreate.get(svc)({
+            const raw = trueCreate(svc);
+            if (!raw) throw new Error('createBot 真身不可用');
+            const created = await raw({
               name: input.name,
               description: input.description ?? '',
               systemPrompt: input.instructions ?? '',
@@ -145,7 +164,7 @@ export function register(rt) {
       let prime = bots.find(b => b.id === saved) ?? bots.find(b => b.name === PRIME_NAME);
       if (!prime) {
         const d = rt.defaultModel() ?? [...bots].reverse().find(b => b.provider && b.model);
-        let create = rawCreate.get(svc);
+        let create = trueCreate(svc);
         if (!create && typeof svc.createBot === 'function') {
           // 服务可能是冻结/远程门面，补丁包不上：直接绑定并留证据
           create = svc.createBot.bind(svc);
@@ -156,14 +175,16 @@ export function register(rt) {
           rt.crash('prime-skip', new Error(JSON.stringify({ hasModel: !!d, hasCreate: !!create, createBotType: typeof svc.createBot })));
           return false;
         }
-        prime = await create({
+        // 走一次内部授权：即使 create 仍是守卫包装（代理取不回真身），引导也能通过。
+        // 这个令牌只存在于本函数的异步上下文里，不会放宽任何模型可见的调用。
+        prime = await createAuth.run({ via: 'bootstrap' }, () => create({
           name: PRIME_NAME,
           description: '团队总理：管理 Bot 名册，唯一可以新建 Bot 的角色',
           systemPrompt: PRIME_PROMPT,
           mentionOnly: false,
           permission: 'full-access',
           provider: d.provider, model: d.model, reasoningEffort: d.reasoningEffort,
-        });
+        }));
       }
       const o = readOrg();
       if (o.primeBotId !== prime.id) {

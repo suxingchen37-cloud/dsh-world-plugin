@@ -8,6 +8,9 @@ const RANK_NAME = { boss: '总理', direction: '管方向', officer: '小官', e
 
 let P = null, activeRoom = null, rememberMode = false, failures = 0;
 const localPending = [], sessionCards = [], seenMsgIds = new Set();
+// 滚动纪律：只有用户本来就在底部（或刚切房间/刚发消息）才自动跟随到底；
+// 内容没变化时不重建 DOM——不拽人、不闪烁、不丢选中文字。
+let lastStreamSig = '', jumpCount = 0, forceBottom = false;
 
 async function refresh() {
   try {
@@ -78,7 +81,8 @@ function renderRooms() {
     ${groups.map(item).join('')}
     ${dms.length ? `<div class="sec"><i>私聊</i> ${String(dms.length).padStart(2, '0')}</div>${dms.map(item).join('')}` : ''}`;
   document.querySelectorAll('.r[data-room]').forEach(el => el.onclick = () => {
-    activeRoom = el.dataset.room; sessionCards.length = 0; localPending.length = 0; render();
+    activeRoom = el.dataset.room; sessionCards.length = 0; localPending.length = 0;
+    forceBottom = true; lastStreamSig = ''; render();
   });
 }
 
@@ -116,7 +120,11 @@ function renderZone() {
 
 // ---- 消息流：说话人栏 + 日期夹线 ----
 function renderStream() {
+  const st = $('#stream');
+  // 在替换内容之前量：用户是否停在底部
+  const nearBottom = st.scrollHeight - st.scrollTop - st.clientHeight < 90;
   const msgs = P.community.messages.filter(m => m.roomId === activeRoom);
+  const freshBot = msgs.filter(m => m.senderKind === 'bot' && !seenMsgIds.has(m.id)).length;
   for (const m of msgs) seenMsgIds.add(m.id);
   const questions = P.community.questions.filter(q => q.roomId === activeRoom);
   const teamApprovals = P.community.approvals.filter(a => a.roomId === activeRoom);
@@ -175,10 +183,20 @@ function renderStream() {
       <div class="cols"><div class="bub">${esc(m.text)}</div></div>
     </div>`);
   }
-  const st = $('#stream');
-  st.innerHTML = parts.join('') || `<div class="empty"><b>这里还空着</b><p>说句开场白，或者用「记」把规矩写进本子。</p></div>`;
-  st.scrollTop = st.scrollHeight;
-  bindStreamActions();
+  const sig = msgs.length + ':' + (msgs.at(-1)?.id ?? '') + ':' + questions.length + ':' + teamApprovals.length + ':' + sessionCards.length + ':' + localPending.length;
+  const unchanged = sig === lastStreamSig && !forceBottom;
+  lastStreamSig = sig;
+  if (!unchanged) {
+    st.innerHTML = parts.join('') || `<div class="empty"><b>这里还空着</b><p>说句开场白，或者用「记」把规矩写进本子。</p></div>`;
+    bindStreamActions();
+  }
+  if (forceBottom || nearBottom) {
+    st.scrollTop = st.scrollHeight;      // 本来就在底部（或刚切房间/刚发消息）才跟随到底
+    jumpCount = 0; hideJump();
+  } else if (freshBot > 0) {
+    jumpCount += freshBot; showJump();   // 你在上面看历史：不打扰，挂红点
+  }
+  forceBottom = false;
   for (let i = localPending.length - 1; i >= 0; i--) {
     if (msgs.some(m => m.senderKind === 'user' && m.text === localPending[i].text)) localPending.splice(i, 1);
   }
@@ -249,6 +267,7 @@ function send() {
     return doRemember(text.replace(/^(?:记住|记一下)[：:]\s*/, ''));
   }
   localPending.push({ roomId: activeRoom, text, at: new Date().toISOString() });
+  forceBottom = true;
   renderStream();
   post('/api/send', { roomId: activeRoom, text }).then(() => refresh());
 }
@@ -349,6 +368,11 @@ $('#paletteScrim').onclick = closePalette;
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal.hidden ? openPalette() : closePalette(); }
 });
+
+// ---- 回到最新按钮（看历史时来新消息，不打扰，点了才下去）----
+function showJump() { const b = $('#jumpBtn'); b.hidden = false; b.querySelector('.n').textContent = jumpCount; }
+function hideJump() { $('#jumpBtn').hidden = true; }
+$('#jumpBtn').onclick = () => { const st = $('#stream'); st.scrollTop = st.scrollHeight; jumpCount = 0; hideJump(); };
 
 // ---- toast ----
 function toast(text, kind = '') {

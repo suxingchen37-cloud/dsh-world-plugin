@@ -214,6 +214,12 @@ body{background:var(--bg);color:var(--ink);font:13px/1.65 var(--sans);overflow:h
 .monitor-show{all:unset;cursor:pointer;position:absolute;right:0;top:56px;writing-mode:vertical-rl;font:700 9px var(--mono);letter-spacing:.2em;color:var(--faint);background:#fff;border:1.5px solid var(--hair);border-right:none;border-radius:8px 0 0 8px;padding:10px 5px}
 .monitor-show:hover{color:var(--ink);box-shadow:-2px 0 0 var(--hair)}
 
+/* 回到最新：翻历史时来新消息，红点提示不打扰 */
+.jump-btn{all:unset;cursor:pointer;position:absolute;right:26px;bottom:96px;display:flex;align-items:center;gap:7px;background:var(--ink);color:#fff;border-radius:var(--r-pill);padding:6px 15px;font:700 11px var(--sans);box-shadow:2px 2px 0 var(--hair);z-index:5}
+.jump-btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--hair)}
+.jump-btn .n{background:var(--hot);color:#fff;border-radius:var(--r-pill);font:900 10px var(--mono);padding:0 7px}
+.jump-btn[hidden]{display:none}
+
 ::-webkit-scrollbar{width:8px}
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
 :focus-visible{outline:2px solid var(--hair);outline-offset:1px}
