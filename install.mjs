@@ -66,13 +66,40 @@ if (process.argv.includes('--with-mcp')) {
       '        failOnStartupError: false',
       '',
     ].join('\n');
-    let cur = '';
-    try { cur = fs.readFileSync(PATCH, 'utf8'); } catch { }
-    const at = cur.indexOf(marker);
-    if (at >= 0) cur = cur.slice(0, at).trimEnd() + '\n';
-    fs.writeFileSync(PATCH, cur + block);
-    console.log('\nMCP block written to', PATCH);
+  let cur = '';
+  try { cur = fs.readFileSync(PATCH, 'utf8'); } catch { }
+  const at = cur.indexOf(marker);
+  if (at >= 0) cur = cur.slice(0, at).trimEnd() + '\n';
+  fs.writeFileSync(PATCH, cur + block);
+  console.log('\nMCP block written to', PATCH);
+}
+
+// 4) 官方 Agent Team（实验包）：主对话获得 Lead + 具名队员 + 共享任务板。
+//    官方文档的最小配置就是这三个包名（插进 patch 层即启用）。
+//    我们的控制台随后把它们当作团队的"作战看板"数据源。
+const TEAM_MARKER = '# dsh-local-computer:官方 Agent Team';
+const TEAM_BLOCK = [
+  '',
+  TEAM_MARKER + '（由 install.mjs 写入；回滚 = 删除这个 insert 块）',
+  '- insert:',
+  '    - id: session-persistence',
+  "      name: '@deepseek-ai/dsh-session-persistence-jsonl'",
+  '    - id: agent-team',
+  "      name: '@deepseek-ai/dsh-experimental-agent-team'",
+  '    - id: agent-team-tools',
+  "      name: '@deepseek-ai/dsh-experimental-tool-agent-team'",
+  '',
+].join('\n');
+{
+  let cur = '';
+  try { cur = fs.readFileSync(PATCH, 'utf8'); } catch { }
+  if (cur.includes(TEAM_MARKER)) {
+    console.log('官方 Agent Team 块已存在，跳过');
+  } else {
+    fs.writeFileSync(PATCH, cur.trimEnd() + '\n' + TEAM_BLOCK);
+    console.log('\n官方 Agent Team 已启用（session-persistence + agent-team + tools）');
   }
+}
 } else {
   console.log('\n跳过 MCP 子进程块（computer_* 已宿主内注册）。需要外部 MCP 客户端访问时加 --with-mcp 重跑。');
 }

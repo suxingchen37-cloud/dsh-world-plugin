@@ -36,8 +36,11 @@ assert.equal(def.id, 'dsh-local-computer', '注册 id = 包名');
 console.log('PASS  求值后注册 id="dsh-local-computer"');
 
 // 4) factory(require) → { inject:['slots'], apply }，slot 注册齐全
+// createElement 打上 __reactElement 标记：组件必须走 React.createElement，
+// 返回 {tag, props, children} 这类普通对象会被 React 渲染器拒绝并降级该注册
+// （症状：侧栏入口注册在册但 active:false，用户看不到入口）。
 const fakeReact = {
-  createElement: (tag, props, ...children) => ({ tag, props, children }),
+  createElement: (tag, props, ...children) => ({ __reactElement: true, tag, props, children }),
   Component: function (props) { this.props = props ?? {}; this.state = {}; },
 };
 const mod = def.factory((name) => {
@@ -60,6 +63,19 @@ assert.equal(views[0].cfg.id, 'resonance', '侧栏入口 id=resonance');
 assert.equal(views[0].cfg.label(), '共振', '侧栏 label=共振');
 assert.equal(views[1].cfg.key, 'resonance', '主视图 key 同一 id（点入口即开）');
 assert.equal(typeof views[1].Comp, 'function', '主视图是组件');
+
+// 4b) 组件必须产出真正的 React 元素：withBoundary 返回 Boundary 元素，
+//     其子元素是入口图标；图标本身渲染出 svg。
+for (const [name, view] of [['侧栏', views[0]], ['主视图', views[1]]]) {
+  const wrapped = view.Comp({ size: 16, active: false });
+  assert.ok(wrapped && wrapped.__reactElement === true,
+    `${name}组件必须返回 React.createElement 的元素，而不是普通对象`);
+}
+const glyph = views[0].Comp({ size: 16, active: false }).children[0];
+assert.ok(glyph && glyph.__reactElement === true, '侧栏图标是 React 元素');
+const svg = glyph.tag({ size: 16, active: false });
+assert.ok(svg && svg.__reactElement === true && svg.tag === 'svg', '侧栏图标渲染出 <svg> 元素');
+console.log('PASS  组件走 React.createElement（图标渲染出 <svg>）');
 console.log('PASS  slots 注入 sidebar.panellist(共振) + main(resonance)');
 
 // 5) 敌意 ctx（读任何未声明服务都抛）→ apply 必须吞掉，不能带崩 web boot
