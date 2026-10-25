@@ -1,17 +1,19 @@
-// 共振 · 潮流版前端。2s 轮询 /api/panel；新鲜交互：Ctrl+K 指令面板、@ 联想、
-// 消息 hover 一键入本子、乐观上屏、弹簧开关与角标。
+// 共振 · 正式版前端（F2 排版）。2s 轮询 /api/panel。
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const timeShort = (iso) => String(iso ?? '').replace('T', ' ').slice(5, 16);
+const timeShort = (iso) => String(iso ?? '').replace('T', ' ').slice(11, 16);
+const dayOf = (iso) => String(iso ?? '').slice(0, 10);
+const RANK_TAG = { boss: 'PRIME', direction: 'DIR', officer: 'OFF', execution: 'TEAM' };
 const RANK_NAME = { boss: '总理', direction: '管方向', officer: '小官', execution: '组长' };
 
-let P = null, activeRoom = null, rememberMode = false, firstRun = true, failures = 0;
+let P = null, activeRoom = null, rememberMode = false, failures = 0;
 const localPending = [], sessionCards = [], seenMsgIds = new Set();
 
 async function refresh() {
   try {
     P = await (await fetch('/api/panel', { cache: 'no-store' })).json();
     failures = 0;
+    $('#offlineBanner').innerHTML = '';
   } catch {
     if (++failures >= 2) $('#offlineBanner').innerHTML = `<div class="offline">连接断了 · 每 2 秒自动重试，不用做什么</div>`;
     return;
@@ -30,92 +32,121 @@ function render() {
     $('#stream').innerHTML = `<div class="empty"><b>团队还没就绪</b><p>${esc(P?.community?.reason ?? 'agent-community 未加载')}</p></div>`;
     return;
   }
-  renderMode();
   renderRooms();
   if (!activeRoom || !P.community.rooms.some(r => r.id === activeRoom)) {
     activeRoom = (P.community.rooms.find(r => r.isGroup) ?? P.community.rooms[0])?.id ?? null;
   }
   renderHead();
-  renderBanner();
+  renderZone();
   renderStream();
   renderTyping();
   renderAutonomy();
+  renderMonitor();
 }
 
-function renderMode() {
-  const el = $('#modeBadge');
-  if (P.community.demoMode) { el.textContent = '演示模式'; el.className = 'mode-badge'; }
-  else { el.textContent = '已接通模型'; el.className = 'mode-badge live'; }
+// ---- 左栏：目录 + 「需要你」置顶 ----
+function needsCount() {
+  return (P.computer.pending?.length ?? 0) + (P.community.questions?.length ?? 0);
 }
-
-// ---- 左栏：房间（未读角标 badge-pop）----
 function renderRooms() {
+  const nb = $('#needbox');
+  const n = needsCount();
+  nb.hidden = n === 0;
+  nb.innerHTML = `<span class="n">${n}</span><b>有 ${n} 件事等你</b><span class="arr">→</span>`;
+  nb.onclick = () => {
+    const q = P.community.questions[0];
+    if (q?.roomId) { activeRoom = q.roomId; render(); return; }
+    toast('都在当前房间，往下看');
+  };
+
   const unreadOf = (rid) => P.community.messages.filter(m => m.roomId === rid && m.senderKind === 'bot' && !seenMsgIds.has(m.id)).length;
-  $('#roomList').innerHTML = P.community.rooms.map(r => {
+  const item = (r) => {
     const last = [...P.community.messages].reverse().find(m => m.roomId === r.id);
     const bot = r.directBotId ? P.community.bots.find(b => b.id === r.directBotId) : null;
     const unread = unreadOf(r.id);
-    return `<div class="room-item ${r.id === activeRoom ? 'active' : ''}" data-room="${esc(r.id)}">
-      <div class="r-ico">${r.isGroup ? '群' : (bot?.avatar ?? '●')}</div>
-      <div class="r-name"><b>${esc(r.name)}</b><span>${esc(last ? last.text.slice(0, 24) : (r.objective || '还没有消息'))}</span></div>
-      ${unread ? `<span class="pill ${firstRun ? 'on' : ''}">${unread}</span>` : ''}
+    const face = r.isGroup ? '群' : (bot?.name?.[0] ?? '●');
+    return `<div class="r ${r.id === activeRoom ? 'on' : ''}" data-room="${esc(r.id)}">
+      <span class="ic">${esc(face)}</span>
+      <span class="tx"><b>${esc(r.name)}</b><span>${esc(last ? last.text.slice(0, 18) : (r.objective || '还没有消息'))}</span></span>
+      ${unread ? `<span class="u">${unread}</span>` : ''}
     </div>`;
-  }).join('');
-  document.querySelectorAll('.room-item').forEach(el => el.onclick = () => { activeRoom = el.dataset.room; sessionCards.length = 0; localPending.length = 0; render(); });
+  };
+  const groups = P.community.rooms.filter(r => r.isGroup);
+  const dms = P.community.rooms.filter(r => !r.isGroup);
+  $('#roomList').innerHTML = `
+    <div class="sec"><i>群聊</i> ${String(groups.length).padStart(2, '0')}</div>
+    ${groups.map(item).join('')}
+    ${dms.length ? `<div class="sec"><i>私聊</i> ${String(dms.length).padStart(2, '0')}</div>${dms.map(item).join('')}` : ''}`;
+  document.querySelectorAll('.r[data-room]').forEach(el => el.onclick = () => {
+    activeRoom = el.dataset.room; sessionCards.length = 0; localPending.length = 0; render();
+  });
 }
 
-// ---- 房间头 ----
+// ---- 头部 ----
 function renderHead() {
   const room = P.community.rooms.find(r => r.id === activeRoom);
   if (!room) return;
-  $('#roomName').textContent = room.name;
-  const members = room.memberIds.map(id => P.community.bots.find(b => b.id === id)?.name).filter(Boolean);
+  $('#roomName').firstChild.textContent = room.name + ' ';
+  $('#roomKind').textContent = room.isGroup ? 'GROUP' : 'DM';
   $('#roomSub').textContent = room.isGroup
-    ? (room.objective ? `目标：${room.objective}` : '公司大群')
-    : `与 ${members.join('、')} 的私聊`;
-  $('#roomMembers').textContent = members.join(' / ');
+    ? (room.objective ? `目标：${room.objective}` : '全员群聊')
+    : `与 ${room.memberIds.map(id => P.community.bots.find(b => b.id === id)?.name).filter(Boolean).join('、')} 的私聊`;
+  $('#cast').innerHTML = room.memberIds.slice(0, 5).map(id => {
+    const b = P.community.bots.find(x => x.id === id);
+    return `<span class="c" title="${esc(b?.name ?? '')}">${esc(b?.name?.[0] ?? '?')}</span>`;
+  }).join('') + `<span class="more">${room.memberIds.length} 人</span>`;
 }
 
-// ---- 待审批：渐变描边悬浮胶囊 ----
-function renderBanner() {
+// ---- 审批条 ----
+function renderZone() {
   $('#bannerZone').innerHTML = P.computer.pending.map(p => `
-    <div class="banner">
+    <div class="zone">
       <span class="k">待审批</span>
-      <span class="mono" style="color:var(--ink)">${esc(p.action)}</span>
-      <span class="grow">${esc(JSON.stringify(p.args?.command ? { command: p.args.command, args: p.args.args } : p.args))}</span>
-      <button class="btn-ghost" style="color:var(--acc2);border-color:color-mix(in srgb,var(--acc2) 50%,transparent)" data-respond="${esc(p.approvalId)}" data-verdict="allow-once">允许一次</button>
-      <button class="btn-ghost" style="color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)" data-respond="${esc(p.approvalId)}" data-verdict="deny">拒绝</button>
+      <span class="x">${esc(p.action)} → ${esc(JSON.stringify(p.args?.command ? [p.args.command, ...(p.args.args ?? [])] : p.args))}</span>
+      <button data-respond="${esc(p.approvalId)}" data-verdict="allow-once">允许一次</button>
+      <button class="ghost" data-respond="${esc(p.approvalId)}" data-verdict="always">总是</button>
+      <button class="ghost" data-respond="${esc(p.approvalId)}" data-verdict="deny">拒绝</button>
     </div>`).join('');
   document.querySelectorAll('[data-respond]').forEach(b => b.onclick = async () => {
     const out = await post('/api/respond', { approvalId: b.dataset.respond, verdict: b.dataset.verdict });
-    toast(out.ok ? (b.dataset.verdict === 'deny' ? '已拒绝' : '已放行') : (out.hint || out.error || '没成'), out.ok ? 'ok' : 'warn');
+    toast(out.ok ? ({ 'allow-once': '已放行这一次', 'always': '这类以后都放行', 'deny': '已拒绝' }[b.dataset.verdict]) : (out.hint || out.error || '没成'), out.ok ? 'ok' : 'warn');
     refresh();
   });
 }
 
-// ---- 消息流 ----
+// ---- 消息流：说话人栏 + 日期夹线 ----
 function renderStream() {
   const msgs = P.community.messages.filter(m => m.roomId === activeRoom);
   for (const m of msgs) seenMsgIds.add(m.id);
   const questions = P.community.questions.filter(q => q.roomId === activeRoom);
   const teamApprovals = P.community.approvals.filter(a => a.roomId === activeRoom);
   const parts = [];
+  let lastDay = null;
+  const rankOf = (botId) => {
+    if (botId === P.org.primeBotId) return 'boss';
+    return P.org.ranks?.[botId] || 'execution';
+  };
   for (const m of msgs) {
+    const d = dayOf(m.at);
+    if (d !== lastDay) {
+      lastDay = d;
+      parts.push(`<div class="day"><span>${d.replace('T', ' ')}</span></div>`);
+    }
     if (m.kind === 'application' || m.kind === 'appoint' || m.kind === 'conflict') {
       const t = { application: ['增员申请', 'exc'], appoint: ['任命公告', 'do'], conflict: ['规则冲突', 'warn'] }[m.kind];
       parts.push(`<div class="syscard ${t[1]}"><div class="sc-title">${t[0]}</div><p>${esc(m.text)}</p></div>`);
       continue;
     }
-    const bot = m.botId ? P.community.bots.find(b => b.id === m.botId) : null;
     const me = m.senderKind === 'user';
-    parts.push(`<div class="msg ${me ? 'me' : ''}">
-      <div class="ava">${me ? '我' : esc(bot?.avatar ?? '●')}</div>
-      <div class="msg-body">
+    const bot = m.botId ? P.community.bots.find(b => b.id === m.botId) : null;
+    const feats = [];
+    if (m.durationMs) feats.push(`耗时 ${(m.durationMs / 1000).toFixed(1)}s`);
+    parts.push(`<div class="m ${me ? 'me' : ''}">
+      <div class="who"><b>${esc(m.sender)}</b>${!me && bot ? `<span class="role">${RANK_TAG[rankOf(bot.id)] ?? ''}</span>` : ''}<span class="tm">${timeShort(m.at)}</span></div>
+      <div class="cols">
         ${!me ? `<div class="hover-acts"><button data-remember="${esc(m.botId)}" data-text="${esc(m.text)}">入本子</button><button data-copy="${esc(m.text)}">复制</button></div>` : ''}
-        <div class="msg-meta"><span class="who">${esc(m.sender)}</span>
-          ${m.durationMs ? `<span class="dur">${(m.durationMs / 1000).toFixed(1)}s</span>` : ''}
-          <span>${timeShort(m.at)}</span></div>
-        <div class="bubble">${esc(m.text)}</div>
+        <div class="bub">${esc(m.text)}</div>
+        ${feats.length ? `<span class="feat">${feats.join(' · ')}</span>` : ''}
       </div>
     </div>`);
   }
@@ -123,26 +154,29 @@ function renderStream() {
     parts.push(`<div class="syscard warn"><div class="sc-title">${esc(c.title)}</div><p>${esc(c.body)}</p></div>`);
   }
   for (const q of questions) {
-    parts.push(`<div class="syscard exc"><div class="sc-title">${esc(q.memberName)} 在问你</div>
+    parts.push(`<div class="q">
+      <div class="k">${esc(q.memberName)} · 在问你</div>
       <p>${esc(q.question)}</p>
-      <div class="q-opts">${(q.options ?? []).map(o => `<button data-answer="${esc(q.id)}" data-value="${esc(o)}">${esc(o)}</button>`).join('')}</div>
-      ${q.allowFreeText ? `<div class="q-free"><input id="q-free-${esc(q.id)}" placeholder="或者自己说…"><button class="q-opts-go" style="display:none"></button></div>` : ''}
+      <div class="ops">${(q.options ?? []).map(o => `<button data-answer="${esc(q.id)}" data-value="${esc(o)}">${esc(o)}</button>`).join('')}
+        <button class="alt" data-skip="${esc(q.id)}">跳过</button></div>
+      ${q.allowFreeText ? `<div class="free"><input id="q-free-${esc(q.id)}" placeholder="或者自己说……"></div>` : ''}
     </div>`);
   }
   for (const a of teamApprovals) {
-    parts.push(`<div class="syscard warn"><div class="sc-title">${esc(a.memberName)} 请求执行工具</div>
-      <p><span class="badge" style="font-size:9px;padding:1px 7px;border-radius:999px;border:1px solid var(--line2);color:var(--muted)">${esc(a.toolName)}</span> <span class="mono" style="font-size:10px;color:var(--muted)">${esc(a.reason)}</span></p>
-      <div class="q-opts"><button data-approve="${esc(a.id)}" data-outcome="allow">允许</button><button class="ghost" data-approve="${esc(a.id)}" data-outcome="reject">拒绝</button></div>
+    parts.push(`<div class="q">
+      <div class="k bad">${esc(a.memberName)} · 请求执行工具 · ${a.risk === 'irreversible' ? '不可逆' : '可逆'}</div>
+      <p>${esc(a.toolName)}</p><div class="cmd">${esc(a.reason)}</div>
+      <div class="ops"><button data-approve="${esc(a.id)}" data-outcome="allow">允许</button><button class="alt" data-approve="${esc(a.id)}" data-outcome="reject">拒绝</button></div>
     </div>`);
   }
   for (const m of localPending.filter(m => m.roomId === activeRoom)) {
-    parts.push(`<div class="msg me pending"><div class="ava">我</div>
-      <div class="msg-body"><div class="msg-meta"><span class="who">${esc(m.sender)}</span><span>${timeShort(m.at)}</span></div>
-      <div class="bubble">${esc(m.text)}</div></div></div>`);
+    parts.push(`<div class="m me pending">
+      <div class="who"><b>我</b><span class="tm">${timeShort(m.at)}</span></div>
+      <div class="cols"><div class="bub">${esc(m.text)}</div></div>
+    </div>`);
   }
   const st = $('#stream');
   st.innerHTML = parts.join('') || `<div class="empty"><b>这里还空着</b><p>说句开场白，或者用「记」把规矩写进本子。</p></div>`;
-  if (firstRun) { firstRun = false; }
   st.scrollTop = st.scrollHeight;
   bindStreamActions();
   for (let i = localPending.length - 1; i >= 0; i--) {
@@ -155,14 +189,14 @@ function bindStreamActions() {
     await post('/api/answer', { questionId: b.dataset.answer, value: b.dataset.value });
     toast('已回复', 'ok'); refresh();
   });
-  document.querySelectorAll('[data-answerfree]').forEach(b => b.onclick = async () => {
-    const el = $('#q-free-' + b.dataset.answerfree);
-    await post('/api/answer', { questionId: b.dataset.answerfree, value: el?.value ?? '' });
-    toast('已回复', 'ok'); refresh();
+  document.querySelectorAll('[data-skip]').forEach(b => b.onclick = async () => {
+    await post('/api/answer', { questionId: b.dataset.skip, skip: true });
+    refresh();
   });
-  const frees = document.querySelectorAll('.q-free input');
-  frees.forEach(el => el.onkeydown = (e) => {
-    if (e.key === 'Enter') { const id = el.id.replace('q-free-', ''); post('/api/answer', { questionId: id, value: el.value }).then(() => { toast('已回复', 'ok'); refresh(); }); }
+  document.querySelectorAll('.free input').forEach(el => el.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      post('/api/answer', { questionId: el.id.replace('q-free-', ''), value: el.value }).then(() => { toast('已回复', 'ok'); refresh(); });
+    }
   });
   document.querySelectorAll('[data-approve]').forEach(b => b.onclick = async () => {
     await post('/api/approve', { callId: b.dataset.approve, outcome: b.dataset.outcome });
@@ -171,63 +205,56 @@ function bindStreamActions() {
   document.querySelectorAll('[data-remember]').forEach(b => b.onclick = async (e) => {
     e.stopPropagation();
     const out = await post('/api/remember', { roomId: activeRoom, botId: b.dataset.remember, text: b.dataset.text });
-    toast(out.ok ? `已入本子：${out.entry.text.slice(0, 24)}` : (out.needs_decision ? '和旧规矩打架了，没收' : (out.error ?? '没成')), out.ok ? 'ok' : 'warn');
+    toast(out.ok ? `已入本子：${out.entry.text.slice(0, 22)}` : (out.needs_decision ? '和旧规矩打架了，没收' : (out.error ?? '没成')), out.ok ? 'ok' : 'warn');
   });
-  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => {
-    navigator.clipboard?.writeText(b.dataset.copy); toast('已复制', 'ok');
-  });
+  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy); toast('已复制', 'ok'); });
 }
 
 function renderTyping() {
   const running = P.community.runs.filter(r => r.running && r.roomId === activeRoom);
   const names = running.map(r => P.community.bots.find(b => b.id === r.botId)?.name).filter(Boolean);
-  $('#typing').hidden = !names.length;
-  $('#typing').innerHTML = names.length
-    ? `<span class="d-typing"><i></i><i></i><i></i></span><span>${esc(names.join('、'))} 正在处理</span>` : '';
+  const t = $('#typing');
+  t.hidden = !names.length;
+  t.innerHTML = names.length ? `<span class="dots"><i></i><i></i><i></i></span>${esc(names.join('、'))} 正在处理` : '';
 }
 
 function renderAutonomy() {
-  const sw = $('#autonomySwitch');
-  sw.setAttribute('aria-checked', String(P.computer.autonomy));
-  sw.onclick = async () => { await post('/api/autonomy', { autonomy: !P.computer.autonomy }); toast(P.computer.autonomy ? '已冻结自主执行' : '自主执行已打开'); refresh(); };
+  const on = P.computer.autonomy === true;
+  $('#autonomyLed').className = 'led' + (on ? '' : ' off');
+  $('#autonomyText').textContent = on ? '全自动' : '已冻结';
+  $('#autonomyBtn').onclick = async () => {
+    await post('/api/autonomy', { autonomy: !P.computer.autonomy });
+    toast(P.computer.autonomy ? '已冻结自主执行' : '自主执行已打开'); refresh();
+  };
 }
 
+// ---- 记住（私聊→该 Bot 本子；群聊→团队本子）----
 function targetOf(roomId, overrideBotId) {
-  if (overrideBotId) {
-    const bot = P.community.bots.find(b => b.id === overrideBotId);
-    return { scope: 'bot', botId: overrideBotId, botName: bot?.name ?? '' };
-  }
+  if (overrideBotId) return { scope: 'bot', botId: overrideBotId };
   const room = P.community.rooms.find(r => r.id === roomId);
-  if (room?.directBotId) {
-    const bot = P.community.bots.find(b => b.id === room.directBotId);
-    return { scope: 'bot', botId: room.directBotId, botName: bot?.name ?? '' };
-  }
-  return { scope: 'team', botId: P.org.primeBotId ?? 'user', botName: '团队' };
+  if (room?.directBotId) return { scope: 'bot', botId: room.directBotId };
+  return { scope: 'team', botId: P.org.primeBotId ?? 'user' };
 }
 
-// ---- 发送 / 记住（乐观上屏）----
 const input = $('#input');
 function send() {
   let text = input.value.trim();
   if (!text || !activeRoom) return;
-  // 引用追问：直播副屏里点过的那一行，带着上下文一起发
   if (!$('#quoteline').hidden) {
     text = `〔${$('#quoteText').textContent}〕` + text;
     $('#quoteline').hidden = true;
   }
   input.value = ''; input.style.height = 'auto';
   if (rememberMode || /^(?:记住|记一下)[：:]/.test(text)) {
-    text = text.replace(/^(?:记住|记一下)[：:]\s*/, '');
-    return doRemember(text);
+    return doRemember(text.replace(/^(?:记住|记一下)[：:]\s*/, ''));
   }
-  localPending.push({ roomId: activeRoom, sender: '我', senderKind: 'user', text, at: new Date().toISOString() });
+  localPending.push({ roomId: activeRoom, text, at: new Date().toISOString() });
   renderStream();
   post('/api/send', { roomId: activeRoom, text }).then(() => refresh());
 }
 async function doRemember(text, overrideBotId) {
-  const t = targetOf(activeRoom, overrideBotId);
-  const out = await post('/api/remember', { roomId: activeRoom, text, ...t });
-  if (out.ok) { toast(`已入本子：${out.entry.text.slice(0, 26)}`, 'ok'); }
+  const out = await post('/api/remember', { roomId: activeRoom, text, ...targetOf(activeRoom, overrideBotId) });
+  if (out.ok) toast(`已入本子：${out.entry.text.slice(0, 24)}`, 'ok');
   else if (out.needs_decision) {
     const c = (out.candidates ?? [])[0];
     sessionCards.push({ roomId: activeRoom, title: '这条没记成', body: `「${text}」和本子里的「${String(c?.text ?? '').slice(0, 40)}」打架了（${c?.relation ?? ''}）。${c?.advice ?? ''}换个说法再记，或在本子里把旧的下线。` });
@@ -236,7 +263,7 @@ async function doRemember(text, overrideBotId) {
   refresh();
 }
 
-// ---- @ 联想弹层（autocomplete）----
+// ---- @ 联想 ----
 const pop = $('#mentionPop');
 let popItems = [], popIdx = 0;
 input.addEventListener('input', () => {
@@ -249,8 +276,8 @@ input.addEventListener('input', () => {
     if (popItems.length) {
       popIdx = 0;
       pop.innerHTML = popItems.map((b, i) => `<div class="mi ${i === 0 ? 'on' : ''}" data-i="${i}">
-        <span class="ava">${esc(b.avatar)}</span><b>${esc(b.name)}</b>
-        <span class="desc">${esc(b.model.split('/').pop() ?? '')}${b.mentionOnly ? ' · 仅@时说话' : ''}</span></div>`).join('');
+        <span class="ic">${esc(b.name[0])}</span><b>${esc(b.name)}</b>
+        <span class="desc">${esc((b.model ?? '').split('/').pop() ?? '')}</span></div>`).join('');
       pop.hidden = false;
       pop.querySelectorAll('.mi').forEach(el => el.onclick = () => pickMention(+el.dataset.i));
       return;
@@ -271,52 +298,49 @@ input.addEventListener('keydown', (e) => {
       pop.querySelectorAll('.mi').forEach((el, i) => el.classList.toggle('on', i === popIdx));
       return;
     }
-    if (e.key === 'Enter') { e.preventDefault(); pickMention(popIdx); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(popIdx); return; }
     if (e.key === 'Escape') { pop.hidden = true; return; }
   }
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  if (e.key === 'Escape' && rememberMode) { rememberMode = false; $('#rememberBtn').classList.remove('on'); input.placeholder = '发消息，@ 点名谁回……'; }
 });
 
-// ---- Ctrl+K 命令面板（palette）----
+// ---- Ctrl+K 指令面板 ----
 const pal = $('#palette'), palInput = $('#paletteInput'), palList = $('#paletteList');
 let palFiltered = [], palIdx = 0;
-function openPalette() {
-  pal.hidden = false; palInput.value = ''; buildPalette('');
-  setTimeout(() => palInput.focus(), 30);
-}
+function openPalette() { pal.hidden = false; palInput.value = ''; buildPalette(''); setTimeout(() => palInput.focus(), 30); }
 function closePalette() { pal.hidden = true; }
 function buildPalette(q) {
+  if (!P?.community?.available) return;
   const all = [
     ...P.community.rooms.map(r => ({
-      ico: r.isGroup ? '群' : (P.community.bots.find(b => b.id === r.directBotId)?.avatar ?? '●'),
-      c: `去 ${r.name}`, s: r.isGroup ? '群聊房间' : '私聊',
+      ico: r.isGroup ? '群' : (P.community.bots.find(b => b.id === r.directBotId)?.name?.[0] ?? '●'),
+      c: `去 ${r.name}`, s: r.isGroup ? '群聊' : '私聊',
       run: () => { activeRoom = r.id; sessionCards.length = 0; localPending.length = 0; render(); },
     })),
-    ...P.community.bots.map(b => ({
-      ico: '记', c: `记一条规矩给 ${b.name}`, s: '直接入本子 · 走查冲突',
-      run: () => { const dm = P.community.rooms.find(r => r.directBotId === b.id); if (dm) { activeRoom = dm.id; } rememberMode = true; $('#rememberBtn').classList.add('active'); render(); input.placeholder = '记住模式：写一条规矩，回车收进本子（Esc 退出）'; input.focus(); },
-    })),
-    { ico: '▤', c: '打开本子', s: '现行规则与账本', run: () => openSheet() },
-    { ico: '⏻', c: P.computer.autonomy ? '冻结自主执行' : '打开自主执行', s: '本机执行总闸', run: async () => { await post('/api/autonomy', { autonomy: !P.computer.autonomy }); refresh(); } },
+    { ico: '记', c: '记住一条规矩（当前房间）', s: '直接入本子 · 走查冲突', run: () => { rememberMode = true; $('#rememberBtn').classList.add('on'); input.placeholder = '记住模式：写一条规矩，回车收进本子（Esc 退出）'; input.focus(); } },
+    { ico: '本', c: '打开本子', s: '现行规则与账本', run: () => openSheet() },
+    { ico: '现', c: P.computer.autonomy ? '冻结自主执行' : '打开自主执行', s: '本机执行总闸', run: async () => { await post('/api/autonomy', { autonomy: !P.computer.autonomy }); refresh(); } },
+    { ico: '场', c: $('#monitor').hidden ? '展开现场副屏' : '收起现场副屏', s: '直播干活与审计', run: () => { $('#monitor').hidden = !$('#monitor').hidden; renderMonitor(); } },
   ];
   palFiltered = all.filter(x => !q || x.c.toLowerCase().includes(q.toLowerCase()));
   palIdx = 0;
   palList.innerHTML = palFiltered.map((x, i) => `<div class="pi ${i === 0 ? 'on' : ''}" data-i="${i}">
     <span class="ico">${esc(x.ico)}</span><span class="c">${esc(x.c)}<small>${esc(x.s)}</small></span><span class="key">↵</span></div>`).join('')
     || '<div class="pi"><span class="c muted">没有匹配的指令</span></div>';
+  const mark = () => palList.querySelectorAll('.pi').forEach((el, i) => el.classList.toggle('on', i === palIdx));
   palList.querySelectorAll('.pi[data-i]').forEach(el => {
     el.onclick = () => { closePalette(); palFiltered[+el.dataset.i]?.run(); };
     el.onmouseenter = () => { palIdx = +el.dataset.i; mark(); };
   });
-  function mark() { palList.querySelectorAll('.pi').forEach((el, i) => el.classList.toggle('on', i === palIdx)); }
-  palList._mark = mark;
 }
 palInput.addEventListener('input', () => buildPalette(palInput.value.trim()));
 palInput.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
-    palIdx = (palIdx + (e.key === 'ArrowDown' ? 1 : Math.max(palFiltered.length - 1, 0))) % Math.max(palFiltered.length, 1);
-    palList._mark?.();
+    if (!palFiltered.length) return;
+    palIdx = (palIdx + (e.key === 'ArrowDown' ? 1 : palFiltered.length - 1)) % palFiltered.length;
+    palList.querySelectorAll('.pi').forEach((el, i) => el.classList.toggle('on', i === palIdx));
     palList.querySelectorAll('.pi')[palIdx]?.scrollIntoView({ block: 'nearest' });
   } else if (e.key === 'Enter') { e.preventDefault(); closePalette(); palFiltered[palIdx]?.run(); }
   else if (e.key === 'Escape') closePalette();
@@ -337,20 +361,22 @@ function toast(text, kind = '') {
 // ---- 本子抽屉 ----
 function openSheet() {
   const t = targetOf(activeRoom);
+  const room = P.community.rooms.find(r => r.id === activeRoom);
+  const botName = t.scope === 'team' ? '团队' : (P.community.bots.find(b => b.id === t.botId)?.name ?? room?.name ?? '');
   const rules = P.brain.entries.filter(e => t.scope === 'team' ? e.scope === 'team' : (e.botId === t.botId || e.scope === 'team'));
   const ledger = P.brain.ledger.slice(0, 20);
   const ACT = { add: '新增', embed: '嵌入', merge: '整合', retire: '下线', fuse: '融合' };
   $('#sheetBody').innerHTML = `
     <span class="sheet-grip"></span>
-    <h3>${esc(t.botName)}的本子</h3>
+    <h3>${esc(botName)}的本子</h3>
     <p class="hint">${t.scope === 'team' ? '团队共享那本 · 只有你能写' : '他自己的本子 · 团队规矩也一并显示'}</p>
     ${rules.map(e => `<div class="rule-row">
-      <span class="txt">${esc(e.text)}${e.scope === 'team' ? ' <span class="badge team">团队</span>' : ''}${e.expiresAt ? ` <span class="badge" style="color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)">${esc(e.expiresAt)} 前有效</span>` : ''}</span>
-      <span class="meta">${timeShort(e.writtenAt)}</span>
+      <span class="txt">${esc(e.text)}${e.scope === 'team' ? ' <span class="badge team">团队</span>' : ''}${e.expiresAt ? ` <span class="badge exp">${esc(e.expiresAt)} 前有效</span>` : ''}</span>
+      <span class="meta">${String(e.writtenAt ?? '').slice(0, 10)}</span>
       <button class="btn-ghost" data-retire="${esc(e.id)}">下线</button>
     </div>`).join('') || '<p class="empty">本子还空着。聊天里说「记住…」就有了。</p>'}
-    <h4>账本（最近 ${ledger.length} 条）</h4>
-    ${ledger.map(r => `<div class="rule-row"><span class="txt muted" style="font-size:12px">${esc(r.summary)}</span><span class="meta">${esc(ACT[r.action] ?? r.action)} · ${timeShort(r.at)}</span></div>`).join('') || '<p class="muted" style="font-size:11px">还没有改动</p>'}
+    <h4>账本 · 最近 ${ledger.length} 条</h4>
+    ${ledger.map(r => `<div class="rule-row"><span class="txt muted" style="font-size:12px">${esc(r.summary)}</span><span class="meta">${esc(ACT[r.action] ?? r.action)} · ${String(r.at ?? '').slice(5, 16)}</span></div>`).join('') || '<p class="muted" style="font-size:11px">还没有改动</p>'}
   `;
   document.querySelectorAll('[data-retire]').forEach(b => b.onclick = async () => {
     const out = await post('/api/remember', { roomId: activeRoom, action: 'retire', entryId: b.dataset.retire, reason: '用户在本子里下线' });
@@ -359,9 +385,8 @@ function openSheet() {
   });
   $('#sheet').hidden = false;
 }
-function closeSheet() { $('#sheet').hidden = true; }
 
-// ---- 现场副屏（最小可用：审计流水 + 干活中的 Bot，点行可引用追问）----
+// ---- 现场副屏 ----
 const monitor = $('#monitor');
 $('#monitorX').onclick = () => { monitor.hidden = true; };
 $('#monitorShow').onclick = () => { monitor.hidden = false; renderMonitor(); };
@@ -379,13 +404,13 @@ function renderMonitor() {
   $('#monitorBody').innerHTML = `
     <div class="m-sec">干活中</div>
     ${runs.map(r => { const b = P.community.bots.find(x => x.id === r.botId); return `
-      <div class="m-run" data-run="${esc(r.id)}" data-text="【追问 · ${esc(b?.name ?? '')} 的任务】${esc((r.prompt ?? '').slice(0, 60))}">
+      <div class="m-run" data-text="【追问 · ${esc(b?.name ?? '')} 的任务】${esc((r.prompt ?? '').slice(0, 50))}">
         <div class="rn"><b>${esc(b?.name ?? '?')}</b><span class="st">RUNNING</span></div>
         <div class="task">${esc(r.prompt ?? '')}</div>
       </div>`; }).join('') || '<div class="m-empty">没有人正在干活</div>'}
     <div class="m-sec">审计 · 最近</div>
-    ${audit.map(a => `<div class="m-line" data-text="【追问 · 审计 ${timeShort(a.at)}】${esc(a.action ?? a.kind)} ${a.kind === 'refused' ? '为什么被拒？' : '这是什么操作？'}">
-      <span class="at">${timeShort(a.at)}</span>
+    ${audit.map(a => `<div class="m-line" data-text="【追问 · 审计 ${String(a.at ?? '').slice(11, 16)}】${esc(a.action ?? a.kind)} ${a.kind === 'refused' ? '为什么被拒？' : '这是什么操作？'}">
+      <span class="at">${String(a.at ?? '').slice(11, 16)}</span>
       <span class="${a.kind === 'refused' ? 'st-bad' : 'st-ok'}">${esc(a.action ?? a.kind)}</span>
       <span>${a.kind === 'refused' ? 'refused' : (a.exitCode != null ? 'exit ' + a.exitCode : esc(a.kind))}</span>
     </div>`).join('') || '<div class="m-empty">还没有审计</div>'}
@@ -396,20 +421,14 @@ function renderMonitor() {
     input.focus();
   });
 }
-// 把渲染挂进主循环：render() 的最后一步
-const _render = render;
-render = function () { _render(); renderMonitor(); };
 
 // ---- 绑定 ----
 $('#sendBtn').onclick = send;
 $('#notebookBtn').onclick = openSheet;
-$('#sheetScrim').onclick = closeSheet;
+$('#sheetScrim').onclick = () => { $('#sheet').hidden = true; };
 $('#rememberBtn').onclick = () => {
   rememberMode = !rememberMode;
-  $('#rememberBtn').classList.toggle('active', rememberMode);
-  input.placeholder = rememberMode ? '记住模式：写一条规矩，回车收进本子（Esc 退出）' : '发消息，@ 点名谁回 · Ctrl+K 万能指令';
+  $('#rememberBtn').classList.toggle('on', rememberMode);
+  input.placeholder = rememberMode ? '记住模式：写一条规矩，回车收进本子（Esc 退出）' : '发消息，@ 点名谁回……';
   input.focus();
 };
-input.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && rememberMode) { rememberMode = false; $('#rememberBtn').classList.remove('active'); input.placeholder = '发消息，@ 点名谁回 · Ctrl+K 万能指令'; }
-});
