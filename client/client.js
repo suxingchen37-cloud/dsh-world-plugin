@@ -99,6 +99,11 @@
       var attemptState = ReactApi.useState(0);
       var attempt = attemptState[0];
       var setAttempt = attemptState[1];
+      // 全面占领：open=true 时整窗覆盖（连宿主侧栏一起盖住）= 进入新产品；
+      // 返回按钮收起覆盖层，缩成左下角悬浮球，iframe 常驻不销毁（控制台状态不丢）。
+      var openState = ReactApi.useState(true);
+      var open = openState[0];
+      var setOpen = openState[1];
 
       ReactApi.useEffect(function () {
         if (port) return undefined;
@@ -138,14 +143,49 @@
       }, [port, attempt]);
 
       if (port) {
-        return h('iframe', {
-          src: 'http://127.0.0.1:' + port + '/',
-          title: '共振',
-          style: {
-            width: '100%', height: '100%', border: 'none', display: 'block',
-            background: '#ffffff',
-          },
-        });
+        var screen = open
+          ? h('div', {
+              style: {
+                position: 'fixed', inset: 0, zIndex: 2147483000,
+                background: '#ffffff', display: 'flex', flexDirection: 'column',
+                fontFamily: 'system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+              },
+            },
+              h('div', {
+                style: {
+                  height: 42, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '0 12px', borderBottom: '1px solid #deded2', background: '#fbfaf5',
+                },
+              },
+                h('button', {
+                  type: 'button', onClick: function () { setOpen(false); },
+                  style: {
+                    border: '1px solid #d8d2c0', background: '#fff', borderRadius: 6,
+                    padding: '3px 12px', font: '12px system-ui', cursor: 'pointer', color: '#333',
+                  },
+                }, '← 返回 DeepSeek'),
+                h('b', { style: { fontSize: 14, letterSpacing: '.08em' } }, '共振'),
+                h('span', { style: { font: '9px ui-monospace, monospace', color: '#94a184', letterSpacing: '.14em' } }, 'AI TEAM CONSOLE')),
+              h('div', { style: { flex: 1, minHeight: 0 } },
+                h('iframe', {
+                  src: 'http://127.0.0.1:' + port + '/',
+                  title: '共振',
+                  style: {
+                    width: '100%', height: '100%', border: 'none', display: 'block',
+                    background: '#ffffff',
+                  },
+                })))
+          : h('button', {
+              type: 'button', onClick: function () { setOpen(true); },
+              title: '展开共振',
+              style: {
+                position: 'fixed', left: 16, bottom: 16, zIndex: 2147483000,
+                border: '1px solid #111214', borderRadius: 10, background: '#111214', color: '#fff',
+                font: '700 12px system-ui', padding: '9px 15px', cursor: 'pointer',
+                boxShadow: '3px 3px 0 rgba(17,18,20,.25)',
+              },
+            }, '◆ 共振');
+        return screen;
       }
 
       if (failed) {

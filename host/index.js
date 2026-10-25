@@ -10,7 +10,7 @@ import { createRuntime, writeMountLog, crash } from './runtime.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CAPS_DIR = path.join(HERE, 'capabilities');
-const BUILD = '2026-10-25.2';
+const BUILD = '2026-10-25.3';
 
 export const name = 'dsh-local-computer';
 // 只强依赖 tools（宿主必有）。团队服务 agentCommunity/agentTeam 在官方 0.2.1-rc.3
