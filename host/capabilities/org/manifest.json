@@ -9,6 +9,7 @@
   "migrates": ["computer.json"],
   "tools": [
     { "name": "apply_new_bot", "summary": "Bot 向总理提交增员申请，发到公司大群并 @总理" },
+    { "name": "spawn_bot", "summary": "总理专用章：批准增员申请后正式创建 Bot 并拉进公司大群" },
     { "name": "org_rank", "summary": "查自己的名字、等级和公司大群" },
     { "name": "org_roster", "summary": "查全公司名册：每个 Bot 的等级与负责范围" },
     { "name": "org_appoint", "summary": "总理任命：给 Bot 定等级与负责范围，公告并记账" },

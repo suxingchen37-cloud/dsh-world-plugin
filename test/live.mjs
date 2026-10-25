@@ -94,9 +94,9 @@ assert.deepEqual(names, [
   'brain_rule', 'computer_capabilities', 'computer_list_dir', 'computer_pending',
   'computer_read_file', 'computer_respond', 'computer_retire_approval', 'computer_shell',
   'computer_status', 'computer_write_file', 'org_appoint', 'org_control', 'org_plan',
-  'org_rank', 'org_roster',
-], 'org 6 + brain 5 + computer 9 个工具全部注册');
-console.log('host tools:', names.length, '个（org 6 + brain 5 + computer 9）');
+  'org_rank', 'org_roster', 'spawn_bot',
+], 'org 7 + brain 5 + computer 9 个工具全部注册');
+console.log('host tools:', names.length, '个（org 7 + brain 5 + computer 9）');
 
 // brain_remember 走一遍：写进独立 brain.json，并触发总理的规则注入同步（mock 服务接得住）
 const brainTool = registered.find(t => t.name === 'brain_remember');
@@ -167,4 +167,4 @@ assert.notEqual(fence.status, 'ok', '账本文件不可读（fail-closed）');
 mcp.kill();
 stop();
 fs.rmSync(STATE, { recursive: true, force: true });
-console.log('\nlive smoke passed: host 20 tools (org6+brain5+computer9), mcp 9 tools, 审批闭环与围栏全部符合预期');
+console.log('\nlive smoke passed: host 21 tools (org7+brain5+computer9), mcp 9 tools, 审批闭环与围栏全部符合预期');

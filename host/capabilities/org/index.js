@@ -505,6 +505,54 @@ export function register(rt) {
     },
   });
 
+  // 总理专用章：正式创建一个新 Bot。增员流程的"盖章"动作——apply_new_bot 提交申请，
+  // 总理批准后用这里落章。走被守卫包住的 svc.spawnBot（createAuth 授权通道），
+  // 创建成功自动拉进公司大群。官方 spawn_teammate 是主会话体系，本房间不可用。
+  rt.tools.add({
+    name: 'spawn_bot',
+    description: '总理专用：批准增员申请后，正式创建一个新 Bot 并自动拉进公司大群。使用前提：公司大群里有一份待批的 apply_new_bot 申请，且你已决定批准。不要在没看申请的情况下直接建人；不要试图用 spawn_teammate 等其他工具建人（会被系统拒绝）。',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        name: { type: 'string', description: '新 Bot 的名字' },
+        description: { type: 'string', description: '一句话职责与专长（会显示在名册）' },
+        instructions: { type: 'string', description: '它每轮都要遵守的个性化指令/规矩' },
+        reason: { type: 'string', description: '批准理由，写一句给用户看' },
+      },
+      required: ['name', 'description', 'instructions'],
+    },
+    async execute(args, exec) {
+      try {
+        const c = rt.caller(exec);
+        if (!c) return { ok: false, error: '只有团队内的 Bot 可以使用。' };
+        if (rankOf(c.botId) !== 'boss') {
+          return { ok: false, error: `只有「总理」可以盖章建 Bot；你的等级是「${RANK_NAME[rankOf(c.botId)]}」。普通成员请用 apply_new_bot 提交增员申请。` };
+        }
+        const svc = rt.community();
+        if (!svc || typeof svc.spawnBot !== 'function') return { ok: false, error: '团队服务还没就绪。' };
+        const pid = primeIdOf();
+        if (!pid) return { ok: false, error: '总理身份还没就绪，稍后再试。' };
+        const name = String(args.name ?? '').trim().slice(0, 40);
+        if (!name) return { ok: false, error: '新 Bot 得有名字。' };
+        const res = await svc.spawnBot({
+          botId: pid,
+          name,
+          description: String(args.description ?? '').slice(0, 300),
+          instructions: String(args.instructions ?? '').slice(0, 2000),
+          collaborate: true,
+          reason: String(args.reason ?? '').slice(0, 200),
+        });
+        if (!res || res.ok === false) return res;
+        // 建人入册：写进团队账本，公司大群可见
+        rt.emit('team-ledger', {
+          botId: pid, botName: botNameOf(pid), scope: 'team', kind: 'log', tags: ['增员'], by: 'prime',
+          text: `批准增员：新建 Bot「${res.name ?? name}」` + (args.reason ? `——${String(args.reason).slice(0, 120)}` : ''),
+        });
+        return { ok: true, botId: res.botId, name: res.name ?? name, ...(res.note ? { note: res.note } : {}) };
+      } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+    },
+  });
+
   return {
     dispose() {
       if (primeTimer) { primeTimer(); primeTimer = null; }
