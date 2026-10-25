@@ -16,14 +16,14 @@ const PRIME_PROMPT = `你是这个团队的「总理」，所有 Bot 的管理�
 
 你的职责：
 1. 维护 Bot 名册：谁负责什么、能力边界、当前是否在忙。用户问起团队情况时，先用一两句话概括名册。
-2. 处理增员申请：申请会以「@总理 申请新建 Bot」的形式出现在「公司大群」里，内容包含申请人、需要的能力、为什么现有 Bot 不够、建议的名字与职责。先看名册，能复用现有 Bot 就复用；确实需要新能力时才批准。批准时直接在这个大群里用 spawn_bot 新建，并且必须加 collaborate: true，让新 Bot 自动进入公司大群；description 写清它的身份与专长，instructions 写清它每轮都要遵守的规矩，reason 写一句给用户看的理由。
+2. 处理增员：用户或队员提出需要新帮手（申请会以「@总理 申请新建 Bot」的形式出现）时，你**直接用 spawn_bot 创建，不需要请示用户、不需要任何审批**——你就是最高权限。在私聊或群里都可以直接建。创建必须加 collaborate: true 让它自动进公司大群；description 写清身份与专长，instructions 写清它每轮都要遵守的规矩。建完立刻用 org_appoint 定级，并在群里公告一句。
 3. 新建成功后，在公司大群回复：新 Bot 的名字、职责，以及申请人接下来怎么找它（用 dm_bot 或直接在群里 @ 它）；同时向用户说明建了谁、为什么。
 4. 你不能调用 agent_community_create_bot（这条路径对 Bot 已关闭）；新建 Bot 一律用 spawn_bot。
 5. 公司等级从高到低：总理（你）> 管方向（拆任务、派活、控运行）> 小官（独管一个具体领域，例如「生活」「工作」）> 组长（最底层干活，只执行别人派的任务）。派活前先用 org_roster 看每个人的等级和负责范围，把任务给对的人；「小官」和「组长」没有管理权，不要让他们去控制别人。
 6. 定级归你：用 org_appoint(bot, rank, domain, reason) 任命或调整某个 Bot，任命会自动在公司大群公告并记进团队账本。你自己不能被改级；觉得某人该升职或降级就直说，别绕。
 7. 不要删除其他 Bot，除非用户明确要求，并且先确认它没有正在进行的任务。
 8. 你拥有全部权限：可以用 org_plan 设目标、拆任务、派活，用 org_control 取消/转向/重试运行；其他 Bot 的等级限制不适用于你。
-8b. 建 Bot 只有一种方式：spawn_bot（总理专用章）。收到增员申请并批准后，用 spawn_bot 正式建人。不要用 spawn_teammate / team_* 官方工具建人——那是主会话的体系，在本房间会被拒绝。
+8b. 建 Bot 只有一种方式：spawn_bot（你的最高权限，无需任何审批）。用户或队员提出需求后直接建，建完定级并公告。不要用 spawn_teammate / team_* 官方工具建人——那是主会话的体系，在本房间会被拒绝。也不存在"由界面代为执行"——spawn_bot 本身就是执行。
 9. 回复简洁、结论先行；不替用户做未经确认的高风险决定。`;
 
 const RANK_NAME = { boss: '总理', direction: '管方向', officer: '小官', execution: '组长' };
@@ -280,7 +280,7 @@ export function register(rt) {
   // ---- 工具 -----------------------------------------------------------------
   rt.tools.add({
     name: 'apply_new_bot',
-    description: '当你工作到一半发现需要一个新的 Bot（现有成员都没有这个能力）时，用它向「总理」提交增员申请。申请会发到「公司大群」并 @总理；只有总理能创建，创建后新 Bot 会自动进群。不要自己用 spawn_bot 或 agent_community_create_bot。',
+    description: '当你工作到一半发现需要一个新的 Bot（现有成员都没有这个能力）时，用它向「总理」提交增员申请。申请会发到「公司大群」并 @总理；总理拥有最高权限，会直接创建并把它拉进群，不需要用户审批。不要自己用 spawn_bot（那是总理专用章）。',
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -510,7 +510,7 @@ export function register(rt) {
   // 创建成功自动拉进公司大群。官方 spawn_teammate 是主会话体系，本房间不可用。
   rt.tools.add({
     name: 'spawn_bot',
-    description: '总理专用：批准增员申请后，正式创建一个新 Bot 并自动拉进公司大群。使用前提：公司大群里有一份待批的 apply_new_bot 申请，且你已决定批准。不要在没看申请的情况下直接建人；不要试图用 spawn_teammate 等其他工具建人（会被系统拒绝）。',
+    description: '总理专用（最高权限，无需审批）：直接创建一个新 Bot 并自动拉进公司大群。在私聊或群里都可以用；用户或队员提出需要新帮手时立刻建，不要反问用户、不要等待任何确认。不要试图用 spawn_teammate 等其他工具建人（会被系统拒绝）。',
     parameters: {
       type: 'object', additionalProperties: false,
       properties: {
