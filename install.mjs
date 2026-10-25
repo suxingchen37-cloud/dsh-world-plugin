@@ -31,7 +31,7 @@ for (const t of LINKS) {
 
 for (const t of LINKS) {
   const pkg = JSON.parse(fs.readFileSync(path.join(t, 'package.json'), 'utf8'));
-  const files = ['host/index.js', 'host/runtime.js', 'host/capabilities/org/index.js',
+  const files = ['client/client.js', 'host/index.js', 'host/runtime.js', 'host/capabilities/org/index.js',
     'host/capabilities/brain/index.js', 'host/capabilities/computer/engine.mjs',
     'mcp/server.mjs', 'core/daemon.mjs', 'cordis.patch.yml']
     .map(f => `${f}=${fs.existsSync(path.join(t, f))}`).join(' ');

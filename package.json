@@ -7,12 +7,14 @@
   "main": "./host/index.js",
   "exports": {
     ".": "./host/index.js",
+    "./client": "./client/client.js",
     "./mcp": "./mcp/server.mjs",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
+    "client/client.js",
     "host/",
     "core/daemon.mjs",
     "mcp/server.mjs",
@@ -24,6 +26,11 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
     }
   },
   "engines": {
