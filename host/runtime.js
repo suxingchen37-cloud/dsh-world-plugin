@@ -141,14 +141,14 @@ export function createRuntime(ctx) {
       } catch { }
     },
 
-    // agent-community 服务访问器。声明的 inject 让 ctx.agentCommunity 可读；ctx.get 与
-    // catch 兜底保证服务被改名/扣发时宿主照样活着。communityPatch 注册的包装
-    // （如 org 的总理守卫）在这里统一施加，WeakSet 保证幂等。
+    // agent-community 服务访问器（尽力而为）：官方 0.2.1-rc.3 里没有 agentCommunity
+    // 这个服务名（团队已演化为 experimental-agent-team 系），所以按三个名字依次尝试，
+    // 全部失败返回 null——org/brain 的团队功能降级，插件本体照常挂载。
     community() {
       let svc = null;
-      try { if (ctx && ctx.agentCommunity) svc = ctx.agentCommunity; } catch { }
-      if (!svc) {
-        try { svc = typeof ctx?.get === 'function' ? ctx.get('agentCommunity') : null; } catch { svc = null; }
+      for (const name of ['agentCommunity', 'agentTeam', 'agent-team']) {
+        try { if (ctx && ctx[name]) { svc = ctx[name]; break; } } catch { }
+        try { if (typeof ctx?.get === 'function') { svc = ctx.get(name); if (svc) break; } } catch { }
       }
       if (!svc) return null;
       if (!patchedServices.has(svc)) {

@@ -13,10 +13,11 @@ const CAPS_DIR = path.join(HERE, 'capabilities');
 const BUILD = '2026-10-25.1';
 
 export const name = 'dsh-local-computer';
-// Cordis 对每个 `ctx.<service>` 读取都按这份声明解析：未声明的读取直接抛
-// `cannot get property "x" without inject`。agentCommunity 与 tools 是能力的两根拐杖，
-// 声明在这里，能力代码永远不需要知道 cordis 的这些细节。
-export const inject = ['agentCommunity', 'tools'];
+// 只强依赖 tools（宿主必有）。团队服务 agentCommunity/agentTeam 在官方 0.2.1-rc.3
+// 里不存在（已演化为 experimental-agent-team 系），声明它会让 cordis 因服务缺失
+// 拒绝实例化本插件——之前"侧栏不出现、挂载日志零新增"的根因就是这条。
+// 现在团队访问是运行时尽力而为（rt.community()），缺失即优雅降级。
+export const inject = ['tools'];
 
 /**
  * 扫描能力目录。独立导出以便测试：注册表是纯数据（manifest 校验），不碰 ctx。
